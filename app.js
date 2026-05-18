@@ -31,6 +31,11 @@ const loginModal = document.querySelector("#loginModal");
 const adminModal = document.querySelector("#adminModal");
 const adminNewsModal = document.querySelector("#adminNewsModal");
 const registrationPasswordModal = document.querySelector("#registrationPasswordModal");
+const tourModal = document.querySelector("#tourModal");
+const tourTitle = document.querySelector("#tourTitle");
+const tourDescription = document.querySelector("#tourDescription");
+const tourStepCounter = document.querySelector("#tourStepCounter");
+const tourNextButton = document.querySelector("#tourNextButton");
 const nameInput = document.querySelector("#nameInput");
 const passwordInput = document.querySelector("#passwordInput");
 const registrationKeyInput = document.querySelector("#registrationKeyInput");
@@ -77,6 +82,7 @@ initialize();
 openLoginButton.addEventListener("click", () => openModal(loginModal, registrationKeyInput || nameInput));
 openAdminButton.addEventListener("click", () => openModal(adminModal, adminPasswordInput));
 openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
+tourNextButton?.addEventListener("click", advanceTour);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
   button.addEventListener("click", closeModals);
 });
@@ -448,9 +454,9 @@ function parseJwt(token) {
   }
 }
 
-function joinWithGoogle({ email, name, picture }) {
+async function joinWithGoogle({ email, name, picture }) {
   if (!email) {
-    showAuthMessage("Google не вернул адрес электронной почты.", true);
+    showAuthMessage("Google не вернул адрес электронной почту.", true);
     return;
   }
 
@@ -465,17 +471,18 @@ function joinWithGoogle({ email, name, picture }) {
         registrationKeyInput?.focus();
         return;
       }
-      hashPassword("registration", registrationKey).then((registrationHash) => {
-        if (registrationHash !== state.registrationPasswordHash) {
-          showAuthMessage("Неверный пароль регистрации. Узнайте его у администратора.", true);
-          registrationKeyInput?.select();
-          return;
-        }
-        createGoogleParticipant({ email, name, picture, isNew });
-      });
+      const registrationHash = await hashPassword("registration", registrationKey);
+      if (registrationHash !== state.registrationPasswordHash) {
+        showAuthMessage("Неверный пароль регистрации. Узнайте его у администратора.", true);
+        registrationKeyInput?.select();
+        return;
+      }
+    } else {
+      showAuthMessage("Регистрация закрыта. Узнайте пароль у администратора.", true);
       return;
     }
-    showAuthMessage("Регистрация закрыта. Узнайте пароль у администратора.", true);
+
+    createGoogleParticipant({ email, name, picture, isNew });
     return;
   }
 
@@ -488,6 +495,9 @@ function joinWithGoogle({ email, name, picture }) {
   closeModals();
   render();
   showAuthMessage("С возвращением!", false);
+  if (!participant.onboardingCompleted) {
+    openTour(participant.id);
+  }
 }
 
 function createGoogleParticipant({ email, name, picture, isNew }) {
@@ -501,6 +511,7 @@ function createGoogleParticipant({ email, name, picture, isNew }) {
     goal: "",
     deadline: "",
     tasks: [],
+    onboardingCompleted: false,
   };
   state.participants.push(participant);
   state.activeParticipantId = participant.id;
@@ -510,6 +521,9 @@ function createGoogleParticipant({ email, name, picture, isNew }) {
   closeModals();
   render();
   showAuthMessage(isNew ? "Вы вошли через Google." : "С возвращением!", false);
+  if (!participant.onboardingCompleted) {
+    openTour(participant.id);
+  }
 }
 
 async function saveRegistrationPassword() {
@@ -561,6 +575,62 @@ function saveState() {
   saveSharedState(state);
 }
 
+const tourSteps = [
+  {
+    title: "Добро пожаловать!",
+    text: "Это Boddy Board — место, где команда ведет цель, шаги и прогресс. Мы покажем, где что находится и как начать.",
+  },
+  {
+    title: "Основная цель",
+    text: "В этом разделе вы можете написать свою главную цель и срок. Это поможет видеть, к чему вы стремитесь.",
+  },
+  {
+    title: "Шаги и подшаги",
+    text: "Добавляйте шаги, затем создавайте дополнительные подзадачи для каждого шага. Это помогает разбить цель на понятные действия.",
+  },
+  {
+    title: "Общий результат",
+    text: "Здесь находится рейтинг группы, прогресс и количество выполненных шагов. Вы сможете увидеть результат своих действий.",
+  },
+  {
+    title: "Готово!",
+    text: "Теперь вы знаете, где писать цель, как добавлять шаги и где смотреть прогресс. Начните с создания первого шага!",
+  },
+];
+
+let currentTourParticipantId = "";
+let currentTourStep = 0;
+
+function openTour(participantId) {
+  currentTourParticipantId = participantId;
+  currentTourStep = 0;
+  renderTourStep();
+  tourModal.hidden = false;
+}
+
+function renderTourStep() {
+  const step = tourSteps[currentTourStep];
+  tourTitle.textContent = step.title;
+  tourDescription.textContent = step.text;
+  tourStepCounter.textContent = `Шаг ${currentTourStep + 1} из ${tourSteps.length}`;
+  tourNextButton.textContent = currentTourStep < tourSteps.length - 1 ? "Далее" : "Завершить";
+}
+
+function advanceTour() {
+  if (currentTourStep < tourSteps.length - 1) {
+    currentTourStep += 1;
+    renderTourStep();
+    return;
+  }
+
+  const participant = findParticipant(currentTourParticipantId);
+  if (participant) {
+    participant.onboardingCompleted = true;
+    saveState();
+  }
+  tourModal.hidden = true;
+}
+
 function toSharedState(source, options = {}) {
   return {
     participants: source.participants,
@@ -610,6 +680,7 @@ function closeModals() {
   adminModal.hidden = true;
   adminNewsModal.hidden = true;
   registrationPasswordModal.hidden = true;
+  tourModal.hidden = true;
 }
 
 function openAdminNewsModal() {
@@ -667,6 +738,7 @@ async function joinAsParticipant() {
       goal: "",
       deadline: "",
       tasks: [],
+      onboardingCompleted: false,
     };
     state.participants.push(participant);
     showAuthMessage("Аккаунт создан. Теперь это ваша страница.", false);
@@ -686,9 +758,12 @@ async function joinAsParticipant() {
   nameInput.value = "";
   passwordInput.value = "";
   if (registrationKeyInput) registrationKeyInput.value = "";
-  closeModals();
   saveState();
+  closeModals();
   render();
+  if (!participant.onboardingCompleted) {
+    openTour(participant.id);
+  }
 }
 
 function logoutParticipant() {

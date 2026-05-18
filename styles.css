@@ -987,6 +987,28 @@ textarea:focus {
   font-size: 28px;
 }
 
+.tour-card {
+  max-width: 520px;
+}
+
+.tour-description {
+  margin: 0 0 18px;
+  color: var(--text);
+  line-height: 1.7;
+}
+
+.tour-progress {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.tour-step-counter {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .modal-form {
   display: grid;
   gap: 10px;

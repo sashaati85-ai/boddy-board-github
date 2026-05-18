@@ -271,6 +271,21 @@
       </article>
     </template>
 
+    <div id="tourModal" class="modal-layer" hidden>
+      <section class="modal-card tour-card" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+        <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
+        <p class="eyebrow">Знакомство</p>
+        <h2 id="tourTitle"></h2>
+        <p id="tourDescription" class="tour-description"></p>
+        <div class="tour-progress">
+          <span id="tourStepCounter" class="tour-step-counter"></span>
+        </div>
+        <div class="modal-form">
+          <button id="tourNextButton" class="primary-action" type="button">Далее</button>
+        </div>
+      </section>
+    </div>
+
     <script src="app.js"></script>
   </body>
 </html>
