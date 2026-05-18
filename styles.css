@@ -113,6 +113,36 @@ button {
   font-weight: 800;
 }
 
+.active-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(51, 65, 85, 0.08);
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.registration-status {
+  display: inline-block;
+  margin-left: 10px;
+  color: var(--vk-blue-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.registration-status.is-error {
+  color: var(--danger);
+}
+
+.google-signin {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
 .primary-action,
 .ghost-action,
 .danger-action {
@@ -483,6 +513,14 @@ tbody tr.is-viewed {
   overflow-wrap: anywhere;
   font-size: 26px;
   letter-spacing: 0;
+}
+
+.profile-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .delete-account {

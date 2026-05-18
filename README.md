@@ -23,8 +23,17 @@
 
 1. Создайте новый репозиторий на GitHub.
 2. Загрузите все файлы из этой папки.
-3. При желании подключите репозиторий к Vercel.
+3. В настройках GitHub Pages выберите ветку `main` и корень (`/`).
+4. При первом пуше сработает workflow `.github/workflows/pages.yml`, который автоматически опубликует сайт.
+
+## Настройка Google Sign-In
+
+1. Создайте OAuth 2.0 Client ID в Google Cloud Console.
+2. В разделе авторизованных JavaScript origins укажите домен сайта, например:
+   - `http://localhost:8000`
+   - `https://your-username.github.io`
+3. В `app.js` замените `YOUR_GOOGLE_OAUTH_CLIENT_ID` на ваш Client ID.
 
 ## Важно
 
-Сейчас общая доска хранится через JSONBlob. Для большой группы лучше потом перейти на Supabase, Firebase или Vercel KV.
+Сейчас общая доска хранится локально и синхронизируется через Vercel API. Для большой группы лучше потом перейти на Supabase, Firebase или Vercel KV.

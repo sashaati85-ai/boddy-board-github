@@ -17,10 +17,13 @@
             <span id="activeBadge" class="active-badge">Войдите по имени</span>
           </div>
         </div>
+        <img id="activeAvatar" class="active-avatar" hidden alt="Фото пользователя">
         <div class="top-actions">
           <button id="openLoginButton" class="primary-action" type="button">Вход участника</button>
           <button id="participantLogoutButton" class="ghost-action" type="button" hidden>Выйти из учётной записи</button>
           <button id="openAdminButton" class="ghost-action" type="button">Для администратора</button>
+          <button id="openRegistrationPasswordButton" class="ghost-action" type="button" hidden>Пароль регистрации</button>
+          <span id="registrationStatus" class="registration-status"></span>
           <button id="openAnnouncementButton" class="primary-action" type="button" hidden>Опубликовать новость</button>
         </div>
       </header>
@@ -78,12 +81,14 @@
         <p class="eyebrow">Участник</p>
         <h2 id="loginTitle">Вход в свою страницу</h2>
         <div class="modal-form">
+          <input id="registrationKeyInput" type="password" maxlength="60" placeholder="Пароль для регистрации">
           <input id="nameInput" type="text" maxlength="40" placeholder="Ваше имя">
           <input id="passwordInput" type="password" maxlength="60" placeholder="Пароль">
           <button id="joinButton" class="primary-action" type="button">Войти / создать</button>
+          <div id="googleSignInButton" class="google-signin"></div>
         </div>
         <p id="authMessage" class="auth-message"></p>
-        <p class="modal-note">Новое имя создаёт аккаунт с этим паролем. Существующее имя откроется только с правильным паролем.</p>
+        <p class="modal-note">Для регистрации нового участника нужен пароль администратора. Если вы уже зарегистрированы, достаточно имени и пароля.</p>
       </section>
     </div>
 
@@ -98,7 +103,7 @@
           <button id="adminLogoutButton" class="danger-action" type="button" hidden>Выйти</button>
         </div>
         <p id="adminMessage" class="auth-message"></p>
-        <p class="modal-note">Только администратор может удалять участников. Если пароль ещё не задан, первый введённый пароль станет паролем администратора.</p>
+        <p class="modal-note">Только администратор может удалять участников. Если пароль ещё не задан, первый введённый пароль станет паролем администратора. Пароль регистрации задаётся отдельной кнопкой «Пароль регистрации».</p>
       </section>
     </div>
 
@@ -120,6 +125,22 @@
             <div id="announcementReadList" class="announcement-read-list"></div>
           </div>
         </div>
+      </section>
+    </div>
+
+    <div id="registrationPasswordModal" class="modal-layer" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="registrationPasswordTitle">
+        <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
+        <p class="eyebrow">Администратор</p>
+        <h2 id="registrationPasswordTitle">Пароль для регистрации</h2>
+        <div class="modal-form">
+          <input id="registrationPasswordInput" type="password" maxlength="60" placeholder="Пароль для регистрации">
+          <button id="saveRegistrationPasswordButton" class="primary-action" type="button">Сохранить пароль</button>
+          <button id="clearRegistrationPasswordButton" class="ghost-action" type="button" hidden>Сбросить пароль</button>
+        </div>
+        <p id="registrationPasswordStatus" class="registration-status"></p>
+        <p id="registrationPasswordMessage" class="auth-message"></p>
+        <p class="modal-note">Без этого пароля новые участники не смогут зарегистрироваться.</p>
       </section>
     </div>
 
@@ -162,6 +183,7 @@
     <template id="profileTemplate">
       <article class="person-column">
         <header class="person-header">
+          <img class="profile-avatar" hidden alt="Фото участника">
           <div>
             <span class="person-label"></span>
             <h2></h2>

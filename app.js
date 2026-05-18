@@ -25,13 +25,23 @@ let dragState = null;
 const openLoginButton = document.querySelector("#openLoginButton");
 const participantLogoutButton = document.querySelector("#participantLogoutButton");
 const openAdminButton = document.querySelector("#openAdminButton");
+const openRegistrationPasswordButton = document.querySelector("#openRegistrationPasswordButton");
+const registrationStatus = document.querySelector("#registrationStatus");
 const loginModal = document.querySelector("#loginModal");
 const adminModal = document.querySelector("#adminModal");
 const adminNewsModal = document.querySelector("#adminNewsModal");
+const registrationPasswordModal = document.querySelector("#registrationPasswordModal");
 const nameInput = document.querySelector("#nameInput");
 const passwordInput = document.querySelector("#passwordInput");
+const registrationKeyInput = document.querySelector("#registrationKeyInput");
 const joinButton = document.querySelector("#joinButton");
+const googleSignInButton = document.querySelector("#googleSignInButton");
 const adminPasswordInput = document.querySelector("#adminPasswordInput");
+const saveRegistrationPasswordButton = document.querySelector("#saveRegistrationPasswordButton");
+const clearRegistrationPasswordButton = document.querySelector("#clearRegistrationPasswordButton");
+const registrationPasswordInput = document.querySelector("#registrationPasswordInput");
+const registrationPasswordStatus = document.querySelector("#registrationPasswordStatus");
+const registrationPasswordMessage = document.querySelector("#registrationPasswordMessage");
 const adminLoginButton = document.querySelector("#adminLoginButton");
 const openAnnouncementButton = document.querySelector("#openAnnouncementButton");
 const adminLogoutButton = document.querySelector("#adminLogoutButton");
@@ -60,10 +70,13 @@ const profileTemplate = document.querySelector("#profileTemplate");
 const taskTemplate = document.querySelector("#taskTemplate");
 const subtaskTemplate = document.querySelector("#subtaskTemplate");
 
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_OAUTH_CLIENT_ID";
+
 initialize();
 
-openLoginButton.addEventListener("click", () => openModal(loginModal, nameInput));
+openLoginButton.addEventListener("click", () => openModal(loginModal, registrationKeyInput || nameInput));
 openAdminButton.addEventListener("click", () => openModal(adminModal, adminPasswordInput));
+openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
   button.addEventListener("click", closeModals);
 });
@@ -89,6 +102,9 @@ joinButton.addEventListener("click", joinAsParticipant);
 participantLogoutButton.addEventListener("click", logoutParticipant);
 adminLoginButton.addEventListener("click", loginAsAdmin);
 openAnnouncementButton.addEventListener("click", openAdminNewsModal);
+openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
+saveRegistrationPasswordButton?.addEventListener("click", saveRegistrationPassword);
+clearRegistrationPasswordButton?.addEventListener("click", clearRegistrationPassword);
 adminLogoutButton.addEventListener("click", logoutAdmin);
 publishAnnouncementButton.addEventListener("click", publishAnnouncement);
 deleteAnnouncementButton.addEventListener("click", deleteAnnouncement);
@@ -121,6 +137,7 @@ function createTask(title, done = false, subtasks = []) {
 async function initialize() {
   state = await loadState();
   restoreLocalSession();
+  loadGoogleIdentity();
   render();
 }
 
@@ -208,6 +225,9 @@ function normalizeState(candidate) {
   const participants = candidate.participants.map((person) => ({
     id: person.id || crypto.randomUUID(),
     name: person.name || "Участник",
+    email: person.email || "",
+    picture: person.picture || "",
+    authProvider: person.authProvider || "",
     passwordHash: person.passwordHash || "",
     goal: person.goal || "",
     deadline: person.deadline || "",
@@ -234,6 +254,7 @@ function normalizeState(candidate) {
     activeParticipantId: "",
     viewedParticipantId: candidate.viewedParticipantId || participants[0]?.id || "",
     adminPasswordHash: candidate.adminPasswordHashV2 || "",
+    registrationPasswordHash: candidate.registrationPasswordHash || "",
     announcement: normalizeAnnouncement(candidate.announcement),
     deletedParticipantIds: Array.isArray(candidate.deletedParticipantIds)
       ? candidate.deletedParticipantIds
@@ -311,6 +332,7 @@ function createInitialState() {
     activeParticipantId: "",
     viewedParticipantId: "",
     adminPasswordHash: "",
+    registrationPasswordHash: "",
     announcement: null,
     deletedParticipantIds: [],
     isAdmin: false,
@@ -349,6 +371,189 @@ function persistLocalSession() {
   }));
 }
 
+function loadGoogleIdentity() {
+  if (!googleSignInButton) return;
+  if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === "YOUR_GOOGLE_OAUTH_CLIENT_ID") {
+    googleSignInButton.hidden = true;
+    return;
+  }
+
+  const existing = document.querySelector("#google-identity-script");
+  if (existing) {
+    if (window.google?.accounts?.id) {
+      initGoogleIdentity();
+    }
+    return;
+  }
+
+  const script = document.createElement("script");
+  script.id = "google-identity-script";
+  script.src = "https://accounts.google.com/gsi/client";
+  script.async = true;
+  script.defer = true;
+  script.onload = initGoogleIdentity;
+  document.head.appendChild(script);
+}
+
+function initGoogleIdentity() {
+  if (!window.google?.accounts?.id || !googleSignInButton) return;
+
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredentialResponse,
+    cancel_on_tap_outside: true,
+  });
+
+  google.accounts.id.renderButton(googleSignInButton, {
+    type: "standard",
+    theme: "outline",
+    size: "large",
+    text: "continue_with",
+    locale: "ru",
+  });
+}
+
+function handleGoogleCredentialResponse(response) {
+  if (!response?.credential) {
+    showAuthMessage("Не удалось получить данные Google.", true);
+    return;
+  }
+
+  const profile = parseJwt(response.credential);
+  if (!profile) {
+    showAuthMessage("Не удалось разобрать данные Google.", true);
+    return;
+  }
+
+  joinWithGoogle({
+    email: profile.email || "",
+    name: profile.name || "Пользователь",
+    picture: profile.picture || "",
+  });
+}
+
+function parseJwt(token) {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
+        .join(""),
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+function joinWithGoogle({ email, name, picture }) {
+  if (!email) {
+    showAuthMessage("Google не вернул адрес электронной почты.", true);
+    return;
+  }
+
+  let participant = state.participants.find((person) => person.email === email);
+  const isNew = !participant;
+
+  if (!participant) {
+    if (state.registrationPasswordHash) {
+      const registrationKey = registrationKeyInput?.value.trim();
+      if (!registrationKey) {
+        showAuthMessage("Для регистрации нового участника введите пароль администратора.", true);
+        registrationKeyInput?.focus();
+        return;
+      }
+      hashPassword("registration", registrationKey).then((registrationHash) => {
+        if (registrationHash !== state.registrationPasswordHash) {
+          showAuthMessage("Неверный пароль регистрации. Узнайте его у администратора.", true);
+          registrationKeyInput?.select();
+          return;
+        }
+        createGoogleParticipant({ email, name, picture, isNew });
+      });
+      return;
+    }
+    showAuthMessage("Регистрация закрыта. Узнайте пароль у администратора.", true);
+    return;
+  }
+
+  participant.name = name || participant.name;
+  participant.picture = picture || participant.picture;
+  participant.authProvider = "google";
+  state.activeParticipantId = participant.id;
+  state.viewedParticipantId = participant.id;
+  saveState();
+  closeModals();
+  render();
+  showAuthMessage("С возвращением!", false);
+}
+
+function createGoogleParticipant({ email, name, picture, isNew }) {
+  const participant = {
+    id: crypto.randomUUID(),
+    name,
+    email,
+    picture,
+    authProvider: "google",
+    passwordHash: "",
+    goal: "",
+    deadline: "",
+    tasks: [],
+  };
+  state.participants.push(participant);
+  state.activeParticipantId = participant.id;
+  state.viewedParticipantId = participant.id;
+  if (registrationKeyInput) registrationKeyInput.value = "";
+  saveState();
+  closeModals();
+  render();
+  showAuthMessage(isNew ? "Вы вошли через Google." : "С возвращением!", false);
+}
+
+async function saveRegistrationPassword() {
+  const value = registrationPasswordInput?.value.trim();
+  if (!value) {
+    if (registrationPasswordMessage) {
+      registrationPasswordMessage.textContent = "Введите пароль для регистрации.";
+      registrationPasswordMessage.classList.add("is-error");
+    }
+    registrationPasswordInput?.focus();
+    return;
+  }
+
+  state.registrationPasswordHash = await hashPassword("registration", value);
+  saveState();
+  if (registrationPasswordStatus) {
+    registrationPasswordStatus.textContent = "Пароль регистрации установлен. Новые участники смогут регистрироваться только при его вводе.";
+  }
+  if (registrationPasswordMessage) {
+    registrationPasswordMessage.textContent = "Пароль регистрации установлен.";
+    registrationPasswordMessage.classList.remove("is-error");
+  }
+  if (clearRegistrationPasswordButton) {
+    clearRegistrationPasswordButton.hidden = false;
+  }
+  registrationPasswordInput.value = "";
+}
+
+function clearRegistrationPassword() {
+  state.registrationPasswordHash = "";
+  saveState();
+  if (registrationPasswordStatus) {
+    registrationPasswordStatus.textContent = "Пароль регистрации удалён. Регистрация новых участников теперь закрыта.";
+  }
+  if (registrationPasswordMessage) {
+    registrationPasswordMessage.textContent = "Пароль регистрации удалён. Регистрация новых участников будет закрыта.";
+    registrationPasswordMessage.classList.remove("is-error");
+  }
+  if (clearRegistrationPasswordButton) {
+    clearRegistrationPasswordButton.hidden = true;
+  }
+  registrationPasswordInput.value = "";
+}
+
 function saveState() {
   const sharedState = toSharedState(state);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
@@ -360,6 +565,7 @@ function toSharedState(source, options = {}) {
   return {
     participants: source.participants,
     adminPasswordHashV2: source.adminPasswordHash,
+    registrationPasswordHash: source.registrationPasswordHash || "",
     announcement: source.announcement,
     deletedParticipantIds: source.deletedParticipantIds || [],
     allowEmptyParticipants: Boolean(options.allowEmptyParticipants),
@@ -385,6 +591,16 @@ async function saveSharedState(source, options = {}) {
 
 function openModal(modal, focusTarget) {
   closeModals();
+  if (modal === registrationPasswordModal) {
+    if (registrationPasswordStatus) {
+      registrationPasswordStatus.textContent = state.registrationPasswordHash
+        ? "Текущий пароль регистрации установлен. Чтобы изменить, введите новый пароль и нажмите «Сохранить пароль»."
+        : "Пароль регистрации пока не задан. Установите его, чтобы новые участники могли регистрироваться.";
+    }
+    if (registrationPasswordMessage) {
+      registrationPasswordMessage.textContent = "";
+    }
+  }
   modal.hidden = false;
   requestAnimationFrame(() => focusTarget.focus());
 }
@@ -393,6 +609,7 @@ function closeModals() {
   loginModal.hidden = true;
   adminModal.hidden = true;
   adminNewsModal.hidden = true;
+  registrationPasswordModal.hidden = true;
 }
 
 function openAdminNewsModal() {
@@ -403,6 +620,7 @@ function openAdminNewsModal() {
 async function joinAsParticipant() {
   const name = nameInput.value.trim();
   const password = passwordInput.value;
+  const registrationKey = registrationKeyInput?.value.trim();
 
   if (!name) {
     showAuthMessage("Введите имя.", true);
@@ -422,6 +640,23 @@ async function joinAsParticipant() {
   const passwordHash = await hashPassword(name, password);
 
   if (!participant) {
+    if (state.registrationPasswordHash) {
+      if (!registrationKey) {
+        showAuthMessage("Для регистрации нового участника введите пароль администратора.", true);
+        registrationKeyInput.focus();
+        return;
+      }
+      const registrationHash = await hashPassword("registration", registrationKey);
+      if (registrationHash !== state.registrationPasswordHash) {
+        showAuthMessage("Неверный пароль регистрации. Узнайте его у администратора.", true);
+        registrationKeyInput.select();
+        return;
+      }
+    } else {
+      showAuthMessage("Регистрация закрыта. Узнайте пароль у администратора.", true);
+      return;
+    }
+
     if (state.deletedParticipantIds.includes(name.toLowerCase())) {
       state.deletedParticipantIds = state.deletedParticipantIds.filter((item) => item !== name.toLowerCase());
     }
@@ -450,6 +685,7 @@ async function joinAsParticipant() {
   state.viewedParticipantId = participant.id;
   nameInput.value = "";
   passwordInput.value = "";
+  if (registrationKeyInput) registrationKeyInput.value = "";
   closeModals();
   saveState();
   render();
@@ -931,8 +1167,19 @@ function renderAdminControls() {
   openAdminButton.textContent = state.isAdmin ? "Админ: включен" : "Для администратора";
   adminLoginButton.hidden = state.isAdmin;
   openAnnouncementButton.hidden = !state.isAdmin;
+  openRegistrationPasswordButton.hidden = !state.isAdmin;
   adminLogoutButton.hidden = !state.isAdmin;
   adminAnnouncementPanel.hidden = !state.isAdmin;
+  if (clearRegistrationPasswordButton) {
+    clearRegistrationPasswordButton.hidden = !state.isAdmin || !state.registrationPasswordHash;
+  }
+  if (registrationStatus) {
+    registrationStatus.textContent = state.isAdmin
+      ? state.registrationPasswordHash
+        ? "Пароль регистрации включён"
+        : "Регистрация новых участников закрыта"
+      : "";
+  }
   renderAnnouncementAdminPanel();
 }
 
@@ -995,14 +1242,33 @@ function renderAnnouncementModal() {
 
 function renderActiveBadge() {
   const active = findParticipant(state.activeParticipantId);
+  const activeAvatar = document.querySelector("#activeAvatar");
+
   participantLogoutButton.hidden = !active || state.isAdmin;
   openLoginButton.hidden = Boolean(active) && !state.isAdmin;
 
   if (state.isAdmin) {
     activeBadge.textContent = "Администратор";
+    if (activeAvatar) {
+      activeAvatar.hidden = true;
+      activeAvatar.src = "";
+    }
     return;
   }
-  activeBadge.textContent = active ? `Вошли: ${active.name}` : "Войдите по имени";
+
+  if (active) {
+    activeBadge.textContent = `Вошли: ${active.name}`;
+    if (activeAvatar) {
+      activeAvatar.src = active.picture || "";
+      activeAvatar.hidden = !active.picture;
+    }
+  } else {
+    activeBadge.textContent = "Войдите по имени";
+    if (activeAvatar) {
+      activeAvatar.hidden = true;
+      activeAvatar.src = "";
+    }
+  }
 }
 
 function renderResults() {
@@ -1133,6 +1399,7 @@ function renderProfile() {
   const taskForm = node.querySelector(".task-form");
   const taskInput = node.querySelector(".task-input");
   const taskList = node.querySelector(".task-list");
+  const profileAvatar = node.querySelector(".profile-avatar");
   const deleteAccountButton = node.querySelector(".delete-account");
 
   node.classList.toggle("is-active", editable);
@@ -1144,6 +1411,11 @@ function renderProfile() {
 
   deleteAccountButton.hidden = !state.isAdmin;
   deleteAccountButton.addEventListener("click", () => deleteAccount(participant.id));
+
+  if (profileAvatar) {
+    profileAvatar.src = participant.picture || "";
+    profileAvatar.hidden = !participant.picture;
+  }
 
   goalInput.value = participant.goal;
   goalInput.disabled = !editable;
