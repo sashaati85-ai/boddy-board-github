@@ -983,6 +983,7 @@ textarea:focus {
 }
 
 #tourModal.tour-overlay {
+  z-index: 1000;
   background: rgba(17, 24, 39, 0.28);
   align-items: flex-start;
 }
@@ -1034,7 +1035,6 @@ textarea:focus {
 
 .tour-highlight {
   position: relative;
-  z-index: 950 !important;
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.92), 0 0 0 10px rgba(255, 173, 63, 0.35);
   border-radius: 18px;
 }

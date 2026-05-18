@@ -87,7 +87,13 @@ openRegistrationPasswordButton?.addEventListener("click", () => openModal(regist
 tourNextButton?.addEventListener("click", advanceTour);
 tourSkipButton?.addEventListener("click", skipTour);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
-  button.addEventListener("click", closeModals);
+  button.addEventListener("click", () => {
+    if (button.closest("#tourModal")) {
+      skipTour();
+      return;
+    }
+    closeModals();
+  });
 });
 document.querySelectorAll(".modal-layer").forEach((layer) => {
   layer.addEventListener("click", (event) => {
@@ -119,6 +125,8 @@ adminLogoutButton.addEventListener("click", logoutAdmin);
 publishAnnouncementButton.addEventListener("click", publishAnnouncement);
 deleteAnnouncementButton.addEventListener("click", deleteAnnouncement);
 closeAnnouncementButton.addEventListener("click", markAnnouncementRead);
+window.addEventListener("resize", scheduleTourPositionUpdate);
+window.addEventListener("scroll", scheduleTourPositionUpdate, { passive: true });
 setInterval(refreshSharedState, 5000);
 [nameInput, passwordInput].forEach((input) => {
   input.addEventListener("keydown", (event) => {
@@ -241,6 +249,7 @@ function normalizeState(candidate) {
     passwordHash: person.passwordHash || "",
     goal: person.goal || "",
     deadline: person.deadline || "",
+    onboardingCompleted: Boolean(person.onboardingCompleted),
     tasks: Array.isArray(person.tasks)
       ? person.tasks.map((task) => ({
           id: task.id || crypto.randomUUID(),
@@ -627,15 +636,27 @@ const tourSteps = [
 let currentTourParticipantId = "";
 let currentTourStep = 0;
 let currentTourTarget = null;
+let tourPositionFrame = 0;
 
 function openTour(participantId) {
+  if (!tourModal || !tourCard) return;
+  const participant = findParticipant(participantId);
+  if (participant) {
+    state.viewedParticipantId = participant.id;
+    render();
+  }
   currentTourParticipantId = participantId;
   currentTourStep = 0;
+  loginModal.hidden = true;
+  adminModal.hidden = true;
+  adminNewsModal.hidden = true;
+  registrationPasswordModal.hidden = true;
   tourModal.hidden = false;
   renderTourStep();
 }
 
 function renderTourStep() {
+  if (!tourModal || tourModal.hidden) return;
   const step = tourSteps[currentTourStep];
   tourTitle.textContent = step.title;
   tourDescription.textContent = step.text;
@@ -649,7 +670,7 @@ function renderTourStep() {
 
 function getTourTarget(step) {
   const primaryTarget = document.querySelector(step.selector);
-  if (primaryTarget && primaryTarget.closest("body") && primaryTarget.offsetParent !== null) {
+  if (isTourTargetVisible(primaryTarget)) {
     return primaryTarget;
   }
 
@@ -662,6 +683,12 @@ function getTourTarget(step) {
   }
 
   return document.querySelector("#profileView") || document.body;
+}
+
+function isTourTargetVisible(target) {
+  if (!target || !target.closest("body")) return false;
+  const rect = target.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
 }
 
 function advanceTour() {
@@ -678,6 +705,7 @@ function advanceTour() {
   }
   tourModal.hidden = true;
   clearTourHighlight();
+  cancelTourPositionUpdate();
 }
 
 function skipTour() {
@@ -694,13 +722,11 @@ function updateTourHighlight(target) {
   if (!target || target === document.body) return;
   currentTourTarget = target;
   target.classList.add("tour-highlight");
-  target.style.zIndex = 29;
 }
 
 function clearTourHighlight() {
   if (currentTourTarget) {
     currentTourTarget.classList.remove("tour-highlight");
-    currentTourTarget.style.zIndex = "";
     currentTourTarget = null;
   }
 }
@@ -712,45 +738,68 @@ function positionTourCard(target, placement) {
     target.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
   }
 
-  requestAnimationFrame(() => {
-    const rect = target.getBoundingClientRect();
-    const cardRect = tourCard.getBoundingClientRect();
-    const offset = 14;
-    let top = 0;
-    let left = 0;
-
-    switch (placement) {
-      case "top":
-        top = rect.top - cardRect.height - offset;
-        left = rect.left + rect.width / 2 - cardRect.width / 2;
-        tourCard.classList.add("placement-top");
-        tourCard.classList.remove("placement-left", "placement-right", "placement-bottom");
-        break;
-      case "left":
-        top = rect.top + rect.height / 2 - cardRect.height / 2;
-        left = rect.left - cardRect.width - offset;
-        tourCard.classList.add("placement-left");
-        tourCard.classList.remove("placement-top", "placement-right", "placement-bottom");
-        break;
-      case "right":
-        top = rect.top + rect.height / 2 - cardRect.height / 2;
-        left = rect.right + offset;
-        tourCard.classList.add("placement-right");
-        tourCard.classList.remove("placement-top", "placement-left", "placement-bottom");
-        break;
-      default:
-        top = rect.bottom + offset;
-        left = rect.left + rect.width / 2 - cardRect.width / 2;
-        tourCard.classList.add("placement-bottom");
-        tourCard.classList.remove("placement-top", "placement-left", "placement-right");
-    }
-
-    top = Math.max(12, Math.min(top, window.innerHeight - cardRect.height - 12));
-    left = Math.max(12, Math.min(left, window.innerWidth - cardRect.width - 12));
-
-    tourCard.style.top = `${top + window.scrollY}px`;
-    tourCard.style.left = `${left + window.scrollX}px`;
+  cancelTourPositionUpdate();
+  tourPositionFrame = requestAnimationFrame(() => {
+    placeTourCard(target, placement);
+    window.setTimeout(() => placeTourCard(target, placement), 320);
   });
+}
+
+function scheduleTourPositionUpdate() {
+  if (!tourModal || tourModal.hidden || !currentTourTarget) return;
+  cancelTourPositionUpdate();
+  tourPositionFrame = requestAnimationFrame(() => {
+    const step = tourSteps[currentTourStep];
+    placeTourCard(currentTourTarget, step?.placement || "bottom");
+  });
+}
+
+function cancelTourPositionUpdate() {
+  if (!tourPositionFrame) return;
+  cancelAnimationFrame(tourPositionFrame);
+  tourPositionFrame = 0;
+}
+
+function placeTourCard(target, placement) {
+  if (!tourCard || !target) return;
+
+  const rect = target.getBoundingClientRect();
+  const cardRect = tourCard.getBoundingClientRect();
+  const offset = 14;
+  let top = 0;
+  let left = 0;
+
+  switch (placement) {
+    case "top":
+      top = rect.top - cardRect.height - offset;
+      left = rect.left + rect.width / 2 - cardRect.width / 2;
+      tourCard.classList.add("placement-top");
+      tourCard.classList.remove("placement-left", "placement-right", "placement-bottom");
+      break;
+    case "left":
+      top = rect.top + rect.height / 2 - cardRect.height / 2;
+      left = rect.left - cardRect.width - offset;
+      tourCard.classList.add("placement-left");
+      tourCard.classList.remove("placement-top", "placement-right", "placement-bottom");
+      break;
+    case "right":
+      top = rect.top + rect.height / 2 - cardRect.height / 2;
+      left = rect.right + offset;
+      tourCard.classList.add("placement-right");
+      tourCard.classList.remove("placement-top", "placement-left", "placement-bottom");
+      break;
+    default:
+      top = rect.bottom + offset;
+      left = rect.left + rect.width / 2 - cardRect.width / 2;
+      tourCard.classList.add("placement-bottom");
+      tourCard.classList.remove("placement-top", "placement-left", "placement-right");
+  }
+
+  top = Math.max(12, Math.min(top, window.innerHeight - cardRect.height - 12));
+  left = Math.max(12, Math.min(left, window.innerWidth - cardRect.width - 12));
+
+  tourCard.style.top = `${top}px`;
+  tourCard.style.left = `${left}px`;
 }
 
 function toSharedState(source, options = {}) {
@@ -804,6 +853,7 @@ function closeModals() {
   registrationPasswordModal.hidden = true;
   tourModal.hidden = true;
   clearTourHighlight();
+  cancelTourPositionUpdate();
 }
 
 function openAdminNewsModal() {
@@ -1359,6 +1409,9 @@ function render() {
   renderResults();
   renderProfile();
   renderAnnouncementModal();
+  if (tourModal && !tourModal.hidden) {
+    renderTourStep();
+  }
 }
 
 function renderAdminControls() {
