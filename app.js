@@ -92,6 +92,7 @@ document.querySelectorAll("[data-close-modal]").forEach((button) => {
 document.querySelectorAll(".modal-layer").forEach((layer) => {
   layer.addEventListener("click", (event) => {
     if (event.target !== layer) return;
+    if (layer === tourModal) return;
     if (layer === announcementModal) {
       markAnnouncementRead();
       return;

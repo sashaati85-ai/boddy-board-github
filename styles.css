@@ -995,6 +995,7 @@ textarea:focus {
   padding: 22px;
   border-radius: 20px;
   box-shadow: 0 28px 70px rgba(17, 24, 39, 0.25);
+  z-index: 1000;
 }
 
 .tour-card {
@@ -1033,7 +1034,7 @@ textarea:focus {
 
 .tour-highlight {
   position: relative;
-  z-index: 30 !important;
+  z-index: 950 !important;
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.92), 0 0 0 10px rgba(255, 173, 63, 0.35);
   border-radius: 18px;
 }
