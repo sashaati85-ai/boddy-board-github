@@ -1083,6 +1083,15 @@ textarea:focus {
   margin-top: 16px;
 }
 
+.admin-settings-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-settings-panel[hidden] {
+  display: none;
+}
+
 .announcement-label {
   display: grid;
   gap: 7px;

@@ -6,6 +6,8 @@ function normalizeSharedState(value) {
   return {
     participants: Array.isArray(source.participants) ? source.participants : [],
     adminPasswordHashV2: source.adminPasswordHashV2 || source.adminPasswordHash || "",
+    adminPasswordChanged: Boolean(source.adminPasswordChanged),
+    registrationPasswordHash: source.registrationPasswordHash || "",
     announcement: source.announcement || null,
     deletedParticipantIds: Array.isArray(source.deletedParticipantIds)
       ? source.deletedParticipantIds
@@ -46,12 +48,13 @@ module.exports = async function handler(request, response) {
     });
     const currentData = currentResponse.ok
       ? normalizeSharedState(await currentResponse.json())
-      : { participants: [], adminPasswordHashV2: "", announcement: null, deletedParticipantIds: [] };
+      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", announcement: null, deletedParticipantIds: [] };
     const deletedIds = new Set([
       ...currentData.deletedParticipantIds,
       ...data.deletedParticipantIds,
     ]);
 
+    data.adminPasswordChanged = data.adminPasswordChanged || currentData.adminPasswordChanged;
     data.deletedParticipantIds = [...deletedIds];
     data.participants = data.participants.filter(
       (participant) =>

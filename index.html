@@ -21,8 +21,8 @@
         <div class="top-actions">
           <button id="openLoginButton" class="primary-action" type="button">Вход участника</button>
           <button id="participantLogoutButton" class="ghost-action" type="button" hidden>Выйти из учётной записи</button>
-          <button id="openAdminButton" class="ghost-action" type="button">Для администратора</button>
           <button id="openRegistrationPasswordButton" class="ghost-action" type="button" hidden>Пароль регистрации</button>
+          <button id="openAdminSettingsButton" class="ghost-action" type="button" hidden>Сменить пароль админа</button>
           <span id="registrationStatus" class="registration-status"></span>
           <button id="openAnnouncementButton" class="primary-action" type="button" hidden>Опубликовать новость</button>
         </div>
@@ -96,14 +96,22 @@
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
         <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
         <p class="eyebrow">Администратор</p>
-        <h2 id="adminTitle">Вход администратора</h2>
-        <div class="modal-form">
+        <h2 id="adminTitle">Административная панель</h2>
+        <div id="adminLoginPanel" class="modal-form">
+          <input id="adminUsernameInput" type="text" maxlength="40" autocomplete="username" placeholder="Логин администратора">
           <input id="adminPasswordInput" type="password" maxlength="60" placeholder="Пароль администратора">
           <button id="adminLoginButton" class="primary-action" type="button">Войти как админ</button>
+        </div>
+        <div id="adminSettingsPanel" class="admin-settings-panel" hidden>
+          <label class="announcement-label">
+            <span>Новый пароль для Sasha</span>
+            <input id="newAdminPasswordInput" type="password" maxlength="60" autocomplete="new-password" placeholder="Новый пароль администратора">
+          </label>
+          <button id="saveAdminPasswordButton" class="primary-action" type="button">Сохранить новый пароль</button>
           <button id="adminLogoutButton" class="danger-action" type="button" hidden>Выйти</button>
         </div>
         <p id="adminMessage" class="auth-message"></p>
-        <p class="modal-note">Только администратор может удалять участников. Если пароль ещё не задан, первый введённый пароль станет паролем администратора. Пароль регистрации задаётся отдельной кнопкой «Пароль регистрации».</p>
+        <p class="modal-note">Вход администратора доступен только через адрес /admin. Логин: Sasha. После входа пароль можно заменить здесь.</p>
       </section>
     </div>
 

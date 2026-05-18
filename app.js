@@ -5,6 +5,8 @@ const SHARED_STATE_URL =
   window.location.protocol === "file:"
     ? "https://trello-three-green.vercel.app/api/state"
     : "/api/state";
+const ADMIN_LOGIN = "Sasha";
+const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 
 const defaultParticipant = {
   id: crypto.randomUUID(),
@@ -25,6 +27,7 @@ let dragState = null;
 const openLoginButton = document.querySelector("#openLoginButton");
 const participantLogoutButton = document.querySelector("#participantLogoutButton");
 const openAdminButton = document.querySelector("#openAdminButton");
+const openAdminSettingsButton = document.querySelector("#openAdminSettingsButton");
 const openRegistrationPasswordButton = document.querySelector("#openRegistrationPasswordButton");
 const registrationStatus = document.querySelector("#registrationStatus");
 const loginModal = document.querySelector("#loginModal");
@@ -43,7 +46,12 @@ const passwordInput = document.querySelector("#passwordInput");
 const registrationKeyInput = document.querySelector("#registrationKeyInput");
 const joinButton = document.querySelector("#joinButton");
 const googleSignInButton = document.querySelector("#googleSignInButton");
+const adminLoginPanel = document.querySelector("#adminLoginPanel");
+const adminSettingsPanel = document.querySelector("#adminSettingsPanel");
+const adminUsernameInput = document.querySelector("#adminUsernameInput");
 const adminPasswordInput = document.querySelector("#adminPasswordInput");
+const newAdminPasswordInput = document.querySelector("#newAdminPasswordInput");
+const saveAdminPasswordButton = document.querySelector("#saveAdminPasswordButton");
 const saveRegistrationPasswordButton = document.querySelector("#saveRegistrationPasswordButton");
 const clearRegistrationPasswordButton = document.querySelector("#clearRegistrationPasswordButton");
 const registrationPasswordInput = document.querySelector("#registrationPasswordInput");
@@ -82,7 +90,8 @@ const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_OAUTH_CLIENT_ID";
 initialize();
 
 openLoginButton.addEventListener("click", () => openModal(loginModal, registrationKeyInput || nameInput));
-openAdminButton.addEventListener("click", () => openModal(adminModal, adminPasswordInput));
+openAdminButton?.addEventListener("click", openAdminPanel);
+openAdminSettingsButton?.addEventListener("click", openAdminPanel);
 openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
 tourNextButton?.addEventListener("click", advanceTour);
 tourSkipButton?.addEventListener("click", skipTour);
@@ -117,6 +126,7 @@ document.addEventListener("keydown", (event) => {
 joinButton.addEventListener("click", joinAsParticipant);
 participantLogoutButton.addEventListener("click", logoutParticipant);
 adminLoginButton.addEventListener("click", loginAsAdmin);
+saveAdminPasswordButton?.addEventListener("click", saveAdminPassword);
 openAnnouncementButton.addEventListener("click", openAdminNewsModal);
 openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
 saveRegistrationPasswordButton?.addEventListener("click", saveRegistrationPassword);
@@ -140,6 +150,16 @@ adminPasswordInput.addEventListener("keydown", (event) => {
     loginAsAdmin();
   }
 });
+adminUsernameInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    adminPasswordInput.focus();
+  }
+});
+newAdminPasswordInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    saveAdminPassword();
+  }
+});
 
 function createTask(title, done = false, subtasks = []) {
   return {
@@ -157,6 +177,9 @@ async function initialize() {
   restoreLocalSession();
   loadGoogleIdentity();
   render();
+  if (isAdminRoute()) {
+    openAdminPanel();
+  }
 }
 
 async function refreshSharedState() {
@@ -273,6 +296,7 @@ function normalizeState(candidate) {
     activeParticipantId: "",
     viewedParticipantId: candidate.viewedParticipantId || participants[0]?.id || "",
     adminPasswordHash: candidate.adminPasswordHashV2 || "",
+    adminPasswordChanged: Boolean(candidate.adminPasswordChanged),
     registrationPasswordHash: candidate.registrationPasswordHash || "",
     announcement: normalizeAnnouncement(candidate.announcement),
     deletedParticipantIds: Array.isArray(candidate.deletedParticipantIds)
@@ -336,6 +360,7 @@ function migrateLegacyState() {
       activeParticipantId: "",
       viewedParticipantId: participant.id,
       adminPasswordHash: "",
+      adminPasswordChanged: false,
       announcement: null,
       deletedParticipantIds: [],
       isAdmin: false,
@@ -351,6 +376,7 @@ function createInitialState() {
     activeParticipantId: "",
     viewedParticipantId: "",
     adminPasswordHash: "",
+    adminPasswordChanged: false,
     registrationPasswordHash: "",
     announcement: null,
     deletedParticipantIds: [],
@@ -806,6 +832,7 @@ function toSharedState(source, options = {}) {
   return {
     participants: source.participants,
     adminPasswordHashV2: source.adminPasswordHash,
+    adminPasswordChanged: Boolean(source.adminPasswordChanged),
     registrationPasswordHash: source.registrationPasswordHash || "",
     announcement: source.announcement,
     deletedParticipantIds: source.deletedParticipantIds || [],
@@ -832,6 +859,9 @@ async function saveSharedState(source, options = {}) {
 
 function openModal(modal, focusTarget) {
   closeModals();
+  if (modal === adminModal) {
+    renderAdminPanel();
+  }
   if (modal === registrationPasswordModal) {
     if (registrationPasswordStatus) {
       registrationPasswordStatus.textContent = state.registrationPasswordHash
@@ -843,7 +873,7 @@ function openModal(modal, focusTarget) {
     }
   }
   modal.hidden = false;
-  requestAnimationFrame(() => focusTarget.focus());
+  requestAnimationFrame(() => focusTarget?.focus());
 }
 
 function closeModals() {
@@ -859,6 +889,10 @@ function closeModals() {
 function openAdminNewsModal() {
   if (!state.isAdmin) return;
   openModal(adminNewsModal, announcementInput);
+}
+
+function openAdminPanel() {
+  openModal(adminModal, state.isAdmin ? newAdminPasswordInput : adminUsernameInput);
 }
 
 async function joinAsParticipant() {
@@ -952,34 +986,69 @@ function showAuthMessage(message, isError) {
 }
 
 async function loginAsAdmin() {
+  const username = adminUsernameInput?.value.trim() || "";
   const password = adminPasswordInput.value;
+  if (username !== ADMIN_LOGIN) {
+    showAdminMessage("Неверный логин администратора.", true);
+    adminUsernameInput?.select();
+    return;
+  }
+
   if (!password) {
     showAdminMessage("Введите пароль администратора.", true);
     adminPasswordInput.focus();
     return;
   }
 
-  const passwordHash = await hashPassword("admin", password);
+  const passwordHash = await getAdminPasswordHash(password);
+  const defaultPasswordHash = await getAdminPasswordHash(DEFAULT_ADMIN_PASSWORD);
   if (!state.adminPasswordHash) {
-    state.adminPasswordHash = passwordHash;
-    state.isAdmin = true;
-    showAdminMessage("Пароль администратора задан. Вы вошли как администратор.", false);
-  } else if (state.adminPasswordHash !== passwordHash) {
+    state.adminPasswordHash = defaultPasswordHash;
+  }
+
+  const usesDefaultPassword = passwordHash === defaultPasswordHash;
+  const isPasswordAccepted =
+    state.adminPasswordHash === passwordHash ||
+    (!state.adminPasswordChanged && usesDefaultPassword);
+
+  if (!isPasswordAccepted) {
     state.isAdmin = false;
     showAdminMessage("Неверный пароль администратора.", true);
     adminPasswordInput.select();
     saveState();
     render();
     return;
-  } else {
-    state.isAdmin = true;
-    showAdminMessage("Вы вошли как администратор.", false);
   }
 
+  state.isAdmin = true;
+  if (usesDefaultPassword) {
+    state.adminPasswordHash = defaultPasswordHash;
+  }
+  showAdminMessage("Вы вошли как администратор.", false);
+  adminUsernameInput.value = "";
   adminPasswordInput.value = "";
   saveState();
   render();
   closeModals();
+}
+
+async function saveAdminPassword() {
+  if (!state.isAdmin) return;
+
+  const value = newAdminPasswordInput?.value.trim() || "";
+  if (!value) {
+    showAdminMessage("Введите новый пароль администратора.", true);
+    newAdminPasswordInput?.focus();
+    return;
+  }
+
+  state.adminPasswordHash = await getAdminPasswordHash(value);
+  state.adminPasswordChanged = true;
+  saveState();
+  newAdminPasswordInput.value = "";
+  showAdminMessage("Пароль администратора изменён.", false);
+  render();
+  openAdminPanel();
 }
 
 function logoutAdmin() {
@@ -993,6 +1062,14 @@ function logoutAdmin() {
 function showAdminMessage(message, isError) {
   adminMessage.textContent = message;
   adminMessage.classList.toggle("is-error", isError);
+}
+
+function renderAdminPanel() {
+  if (!adminLoginPanel || !adminSettingsPanel) return;
+  adminLoginPanel.hidden = state.isAdmin;
+  adminSettingsPanel.hidden = !state.isAdmin;
+  adminLoginButton.hidden = state.isAdmin;
+  adminLogoutButton.hidden = !state.isAdmin;
 }
 
 function showAnnouncementMessage(message, isError) {
@@ -1067,6 +1144,17 @@ async function hashPassword(name, password) {
     hash |= 0;
   }
   return `fallback-${hash}`;
+}
+
+function getAdminPasswordHash(password) {
+  return hashPassword(`admin:${ADMIN_LOGIN}`, password);
+}
+
+function isAdminRoute() {
+  const path = decodeURIComponent(window.location.pathname)
+    .replace(/\/+$/, "")
+    .toLowerCase();
+  return path === "/admin" || path === "/админ";
 }
 
 function viewParticipant(id) {
@@ -1415,12 +1503,18 @@ function render() {
 }
 
 function renderAdminControls() {
-  openAdminButton.textContent = state.isAdmin ? "Админ: включен" : "Для администратора";
+  if (openAdminButton) {
+    openAdminButton.hidden = true;
+  }
   adminLoginButton.hidden = state.isAdmin;
   openAnnouncementButton.hidden = !state.isAdmin;
   openRegistrationPasswordButton.hidden = !state.isAdmin;
+  if (openAdminSettingsButton) {
+    openAdminSettingsButton.hidden = !state.isAdmin;
+  }
   adminLogoutButton.hidden = !state.isAdmin;
   adminAnnouncementPanel.hidden = !state.isAdmin;
+  renderAdminPanel();
   if (clearRegistrationPasswordButton) {
     clearRegistrationPasswordButton.hidden = !state.isAdmin || !state.registrationPasswordHash;
   }
