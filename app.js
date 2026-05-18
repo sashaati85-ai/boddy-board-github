@@ -589,32 +589,38 @@ const tourSteps = [
   {
     selector: "#resultChart",
     title: "Движение участников",
-    text: "Здесь видно, как двигаются участники: столбцы показывают прогресс каждого игрока.",
-    placement: "top",
+    text: "Здесь виден прогресс команды. Чем выше столбец — тем ближе участник к цели.",
+    placement: "bottom",
   },
   {
     selector: "#resultTable",
     title: "Таблица участников",
-    text: "В таблице показаны все участники, их цель, срок и сколько шагов уже выполнено.",
-    placement: "left",
+    text: "В таблице показаны участники, их цель, срок и сколько шагов выполнено.",
+    placement: "right",
+  },
+  {
+    selector: ".person-goal",
+    title: "Основная цель",
+    text: "Впишите сюда основную цель. Она станет центральной задачей вашего профиля.",
+    placement: "right",
   },
   {
     selector: ".task-form .task-input",
-    title: "Добавление шага",
-    text: "Введите название шага сюда, чтобы создать новую карточку плана.",
+    title: "Добавление шагов",
+    text: "Введите основной шаг сюда, чтобы создать новую карточку плана.",
     placement: "top",
   },
   {
-    selector: ".task-form button[type=submit]",
-    title: "Кнопка создания карточки",
-    text: "Нажмите «+», чтобы добавить шаг. Новая карточка появится в задаче и будет отслеживаться автоматически.",
-    placement: "left",
+    selector: ".add-subtask",
+    title: "Дополнительные шаги",
+    text: "Нажмите «Добавить доп. шаг», чтобы разбить основной шаг на дополнительные действия.",
+    placement: "top",
   },
   {
     selector: ".person-progress",
     title: "Прогресс цели",
-    text: "Здесь отображается ваш текущий прогресс — процент и количество завершённых шагов.",
-    placement: "right",
+    text: "Здесь отображается ваш прогресс: процент и количество выполненных шагов.",
+    placement: "left",
   },
 ];
 
@@ -636,9 +642,26 @@ function renderTourStep() {
   tourStepCounter.textContent = `Шаг ${currentTourStep + 1} из ${tourSteps.length}`;
   tourNextButton.textContent = currentTourStep < tourSteps.length - 1 ? "Далее" : "Завершить";
 
-  const target = document.querySelector(step.selector) || document.querySelector("#profileView") || document.body;
+  const target = getTourTarget(step);
   updateTourHighlight(target);
   positionTourCard(target, step.placement || "bottom");
+}
+
+function getTourTarget(step) {
+  const primaryTarget = document.querySelector(step.selector);
+  if (primaryTarget && primaryTarget.closest("body") && primaryTarget.offsetParent !== null) {
+    return primaryTarget;
+  }
+
+  if (step.selector === ".add-subtask") {
+    return document.querySelector(".task-list") || document.querySelector(".task-form") || document.querySelector("#profileView");
+  }
+
+  if (step.selector === ".person-goal") {
+    return document.querySelector(".person-goal") || document.querySelector("#profileView");
+  }
+
+  return document.querySelector("#profileView") || document.body;
 }
 
 function advanceTour() {
