@@ -176,6 +176,9 @@ async function initialize() {
   state = await loadState();
   restoreLocalSession();
   loadGoogleIdentity();
+  if (archiveFinishedGoals()) {
+    saveState();
+  }
   render();
   if (isAdminRoute()) {
     openAdminPanel();
@@ -213,8 +216,12 @@ async function refreshSharedState() {
       : freshState.participants[0]?.id || "";
     state.isAdmin = isAdmin;
     persistLocalSession();
+    const hasArchivedGoals = archiveFinishedGoals();
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(state)));
+    if (hasArchivedGoals) {
+      saveSharedState(state);
+    }
     render();
     if (adminNewsModal && !adminNewsModal.hidden && document.activeElement === announcementInput) {
       announcementInput.value = activeAnnouncementText;
@@ -273,6 +280,18 @@ function normalizeState(candidate) {
     goal: person.goal || "",
     deadline: person.deadline || "",
     onboardingCompleted: Boolean(person.onboardingCompleted),
+    archivedGoals: Array.isArray(person.archivedGoals)
+      ? person.archivedGoals.map((goal) => ({
+          id: goal.id || crypto.randomUUID(),
+          title: goal.title || "Цель без названия",
+          deadline: goal.deadline || "",
+          status: goal.status === "completed" ? "completed" : "expired",
+          progress: Number.isFinite(goal.progress) ? goal.progress : 0,
+          doneTasks: Number.isFinite(goal.doneTasks) ? goal.doneTasks : 0,
+          totalTasks: Number.isFinite(goal.totalTasks) ? goal.totalTasks : 0,
+          archivedAt: goal.archivedAt || Date.now(),
+        }))
+      : [],
     tasks: Array.isArray(person.tasks)
       ? person.tasks.map((task) => ({
           id: task.id || crypto.randomUUID(),
@@ -348,6 +367,7 @@ function migrateLegacyState() {
       passwordHash: "",
       goal: parsed.goal || "Моя цель",
       deadline: parsed.deadline || "",
+      archivedGoals: [],
       tasks: parsed.tasks.map((task) => ({
         id: crypto.randomUUID(),
         title: task.title,
@@ -550,6 +570,7 @@ function createGoogleParticipant({ email, name, picture, isNew }) {
     goal: "",
     deadline: "",
     tasks: [],
+    archivedGoals: [],
     onboardingCompleted: false,
   };
   state.participants.push(participant);
@@ -945,6 +966,7 @@ async function joinAsParticipant() {
       goal: "",
       deadline: "",
       tasks: [],
+      archivedGoals: [],
       onboardingCompleted: false,
     };
     state.participants.push(participant);
@@ -1112,6 +1134,15 @@ function deleteAnnouncement() {
   render();
 }
 
+function deleteArchivedGoal(participantId, archiveId) {
+  const participant = findParticipant(participantId);
+  if (!participant || !state.isAdmin) return;
+
+  participant.archivedGoals = (participant.archivedGoals || []).filter((goal) => goal.id !== archiveId);
+  saveState();
+  render();
+}
+
 function markAnnouncementRead() {
   const active = findParticipant(state.activeParticipantId);
   if (!active || !state.announcement) {
@@ -1163,6 +1194,45 @@ function viewParticipant(id) {
   render();
 }
 
+function archiveFinishedGoals() {
+  return state.participants.reduce((changed, participant) => {
+    return archiveFinishedGoal(participant) || changed;
+  }, false);
+}
+
+function archiveFinishedGoal(participant) {
+  if (!participant || !hasActiveGoal(participant)) return false;
+
+  const progress = getProgress(participant.tasks);
+  const completed = progress.total > 0 && progress.done === progress.total;
+  const expired = isDeadlineExpired(participant.deadline) && !completed;
+  if (!completed && !expired) return false;
+
+  participant.archivedGoals = Array.isArray(participant.archivedGoals) ? participant.archivedGoals : [];
+  participant.archivedGoals.unshift({
+    id: crypto.randomUUID(),
+    title: participant.goal || "Цель без названия",
+    deadline: participant.deadline || "",
+    status: completed ? "completed" : "expired",
+    progress: progress.percent,
+    doneTasks: progress.done,
+    totalTasks: progress.total,
+    archivedAt: Date.now(),
+  });
+  participant.goal = "";
+  participant.deadline = "";
+  participant.tasks = [];
+  return true;
+}
+
+function hasActiveGoal(participant) {
+  return Boolean(
+    participant.goal?.trim() ||
+      participant.deadline ||
+      (Array.isArray(participant.tasks) && participant.tasks.length > 0),
+  );
+}
+
 function updateGoal(participantId, goal) {
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId)) return;
@@ -1177,8 +1247,9 @@ function updateDeadline(participantId, deadline) {
   if (!participant || !isActive(participantId)) return;
 
   participant.deadline = deadline;
+  archiveFinishedGoal(participant);
   saveState();
-  renderResults();
+  render();
 }
 
 function addTask(participantId, title) {
@@ -1199,6 +1270,7 @@ function toggleTask(participantId, taskId, done) {
 
   task.done = done;
   reorderTasks(participant);
+  archiveFinishedGoal(participant);
   saveState();
   render();
 }
@@ -1248,6 +1320,7 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
 
   subtask.done = done;
   reorderTasks(participant);
+  archiveFinishedGoal(participant);
   saveState();
   render();
 }
@@ -1261,6 +1334,7 @@ function deleteSubtask(participantId, taskId, subtaskId) {
 
   task.subtasks = task.subtasks.filter((subtask) => subtask.id !== subtaskId);
   reorderTasks(participant);
+  archiveFinishedGoal(participant);
   saveState();
   render();
 }
@@ -1381,6 +1455,7 @@ function deleteTask(participantId, taskId) {
   if (!participant || !isActive(participantId)) return;
 
   participant.tasks = participant.tasks.filter((task) => task.id !== taskId);
+  archiveFinishedGoal(participant);
   saveState();
   render();
 }
@@ -1437,6 +1512,18 @@ function getProgress(tasks) {
   const done = tasks.filter((task) => isTaskComplete(task)).length;
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   return { total, done, percent };
+}
+
+function isDeadlineExpired(deadline) {
+  if (!deadline) return false;
+  const [year, month, day] = deadline.split("-").map(Number);
+  if (!year || !month || !day) return false;
+
+  const target = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  return target < today;
 }
 
 function getDeadlineInfo(deadline) {
@@ -1744,6 +1831,7 @@ function renderProfile() {
   const taskForm = node.querySelector(".task-form");
   const taskInput = node.querySelector(".task-input");
   const taskList = node.querySelector(".task-list");
+  const archiveList = node.querySelector(".archive-list");
   const profileAvatar = node.querySelector(".profile-avatar");
   const deleteAccountButton = node.querySelector(".delete-account");
 
@@ -1788,7 +1876,68 @@ function renderProfile() {
     taskList.append(empty);
   }
 
+  renderGoalArchive(archiveList, participant);
+
   profileView.append(node);
+}
+
+function renderGoalArchive(container, participant) {
+  if (!container) return;
+  container.replaceChildren();
+
+  const archivedGoals = Array.isArray(participant.archivedGoals) ? participant.archivedGoals : [];
+  if (archivedGoals.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Архив целей пока пуст.";
+    container.append(empty);
+    return;
+  }
+
+  archivedGoals.forEach((goal) => {
+    const card = document.createElement("article");
+    const main = document.createElement("div");
+    const title = document.createElement("strong");
+    const meta = document.createElement("p");
+    const status = document.createElement("span");
+
+    card.className = "archive-card";
+    main.className = "archive-main";
+    title.textContent = goal.title || "Цель без названия";
+    meta.textContent = getArchiveMeta(goal);
+    status.className = `archive-status archive-${goal.status === "completed" ? "completed" : "expired"}`;
+    status.textContent = goal.status === "completed" ? "Достигнута" : "Срок прошёл";
+
+    main.append(title, meta);
+    card.append(main, status);
+
+    if (state.isAdmin) {
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "archive-delete";
+      deleteButton.type = "button";
+      deleteButton.textContent = "Удалить";
+      deleteButton.addEventListener("click", () => deleteArchivedGoal(participant.id, goal.id));
+      card.append(deleteButton);
+    }
+
+    container.append(card);
+  });
+}
+
+function getArchiveMeta(goal) {
+  const parts = [];
+  if (goal.deadline) {
+    parts.push(`срок ${formatDate(goal.deadline)}`);
+  }
+  parts.push(`${goal.doneTasks || 0} из ${goal.totalTasks || 0} шагов`);
+  parts.push(`${goal.progress || 0}%`);
+  return parts.join(" · ");
+}
+
+function formatDate(dateValue) {
+  const [year, month, day] = String(dateValue || "").split("-").map(Number);
+  if (!year || !month || !day) return "без срока";
+  return `${String(day).padStart(2, "0")}.${String(month).padStart(2, "0")}.${year}`;
 }
 
 function createSubtaskCard(participantId, taskId, subtask, editable) {

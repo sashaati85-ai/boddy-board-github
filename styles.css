@@ -533,7 +533,8 @@ tbody tr.is-viewed {
 .goal-fields,
 .person-progress,
 .task-form,
-.task-list {
+.task-list,
+.goal-archive {
   margin: 16px 20px;
 }
 
@@ -663,6 +664,88 @@ textarea:focus {
   gap: 10px;
   min-height: 80px;
   padding-bottom: 4px;
+}
+
+.goal-archive {
+  display: grid;
+  gap: 12px;
+}
+
+.archive-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.archive-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--soft);
+  color: var(--vk-blue-dark);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.archive-list {
+  display: grid;
+  gap: 10px;
+}
+
+.archive-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+
+.archive-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.archive-main strong {
+  overflow-wrap: anywhere;
+}
+
+.archive-main p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.archive-status {
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.archive-completed {
+  background: #e8f7ef;
+  color: #247a55;
+}
+
+.archive-expired {
+  background: #fff1eb;
+  color: var(--danger);
+}
+
+.archive-delete {
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 10px;
+  background: var(--danger);
+  color: #fff;
+  font-weight: 850;
 }
 
 .task-card {
@@ -1217,7 +1300,8 @@ textarea:focus {
 
   .stats-grid,
   .chart-row,
-  .goal-fields {
+  .goal-fields,
+  .archive-card {
     grid-template-columns: 1fr;
   }
 
