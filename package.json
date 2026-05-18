@@ -1,0 +1,9 @@
+{
+  "name": "boddy-board",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "vercel dev",
+    "check": "node --check app.js && node --check api/state.js"
+  }
+}
