@@ -271,8 +271,8 @@
       </article>
     </template>
 
-    <div id="tourModal" class="modal-layer" hidden>
-      <section class="modal-card tour-card" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+    <div id="tourModal" class="modal-layer tour-overlay" hidden>
+      <section id="tourCard" class="modal-card tour-card placement-bottom" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
         <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
         <p class="eyebrow">Знакомство</p>
         <h2 id="tourTitle"></h2>
@@ -280,7 +280,8 @@
         <div class="tour-progress">
           <span id="tourStepCounter" class="tour-step-counter"></span>
         </div>
-        <div class="modal-form">
+        <div class="modal-form tour-actions">
+          <button id="tourSkipButton" class="ghost-action" type="button">Пропустить</button>
           <button id="tourNextButton" class="primary-action" type="button">Далее</button>
         </div>
       </section>

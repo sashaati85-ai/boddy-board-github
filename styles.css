@@ -982,13 +982,60 @@ textarea:focus {
   box-shadow: 0 28px 70px rgba(17, 24, 39, 0.25);
 }
 
-.modal-card h2 {
-  margin: 0 0 16px;
-  font-size: 28px;
+#tourModal.tour-overlay {
+  background: rgba(17, 24, 39, 0.28);
+  align-items: flex-start;
+}
+
+#tourModal.tour-overlay .modal-card {
+  position: absolute;
+  width: min(420px, 92vw);
+  max-height: none;
+  overflow: visible;
+  padding: 22px;
+  border-radius: 20px;
+  box-shadow: 0 28px 70px rgba(17, 24, 39, 0.25);
 }
 
 .tour-card {
   max-width: 520px;
+}
+
+.tour-card::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  transform: rotate(45deg);
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.18);
+}
+
+.tour-card.placement-bottom::after {
+  top: -9px;
+  left: 28px;
+}
+
+.tour-card.placement-top::after {
+  bottom: -9px;
+  left: 28px;
+}
+
+.tour-card.placement-left::after {
+  right: -9px;
+  top: 28px;
+}
+
+.tour-card.placement-right::after {
+  left: -9px;
+  top: 28px;
+}
+
+.tour-highlight {
+  position: relative;
+  z-index: 30 !important;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.92), 0 0 0 10px rgba(255, 173, 63, 0.35);
+  border-radius: 18px;
 }
 
 .tour-description {
@@ -999,8 +1046,9 @@ textarea:focus {
 
 .tour-progress {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin-bottom: 14px;
+  align-items: center;
 }
 
 .tour-step-counter {
@@ -1012,6 +1060,16 @@ textarea:focus {
 .modal-form {
   display: grid;
   gap: 10px;
+}
+
+.tour-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+#tourSkipButton {
+  width: auto;
 }
 
 .modal-form button {

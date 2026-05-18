@@ -32,10 +32,12 @@ const adminModal = document.querySelector("#adminModal");
 const adminNewsModal = document.querySelector("#adminNewsModal");
 const registrationPasswordModal = document.querySelector("#registrationPasswordModal");
 const tourModal = document.querySelector("#tourModal");
+const tourCard = document.querySelector("#tourCard");
 const tourTitle = document.querySelector("#tourTitle");
 const tourDescription = document.querySelector("#tourDescription");
 const tourStepCounter = document.querySelector("#tourStepCounter");
 const tourNextButton = document.querySelector("#tourNextButton");
+const tourSkipButton = document.querySelector("#tourSkipButton");
 const nameInput = document.querySelector("#nameInput");
 const passwordInput = document.querySelector("#passwordInput");
 const registrationKeyInput = document.querySelector("#registrationKeyInput");
@@ -83,6 +85,7 @@ openLoginButton.addEventListener("click", () => openModal(loginModal, registrati
 openAdminButton.addEventListener("click", () => openModal(adminModal, adminPasswordInput));
 openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
 tourNextButton?.addEventListener("click", advanceTour);
+tourSkipButton?.addEventListener("click", skipTour);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
   button.addEventListener("click", closeModals);
 });
@@ -577,35 +580,52 @@ function saveState() {
 
 const tourSteps = [
   {
-    title: "Добро пожаловать!",
-    text: "Это Boddy Board — место, где команда ведет цель, шаги и прогресс. Мы покажем, где что находится и как начать.",
+    selector: "#activeBadge",
+    title: "Ваша текущая учётная запись",
+    text: "Стрелка указывает на вашу текущую учётную запись: имя, статус и аватар.",
+    placement: "bottom",
   },
   {
-    title: "Основная цель",
-    text: "В этом разделе вы можете написать свою главную цель и срок. Это поможет видеть, к чему вы стремитесь.",
+    selector: "#resultChart",
+    title: "Движение участников",
+    text: "Здесь видно, как двигаются участники: столбцы показывают прогресс каждого игрока.",
+    placement: "top",
   },
   {
-    title: "Шаги и подшаги",
-    text: "Добавляйте шаги, затем создавайте дополнительные подзадачи для каждого шага. Это помогает разбить цель на понятные действия.",
+    selector: "#resultTable",
+    title: "Таблица участников",
+    text: "В таблице показаны все участники, их цель, срок и сколько шагов уже выполнено.",
+    placement: "left",
   },
   {
-    title: "Общий результат",
-    text: "Здесь находится рейтинг группы, прогресс и количество выполненных шагов. Вы сможете увидеть результат своих действий.",
+    selector: ".task-form .task-input",
+    title: "Добавление шага",
+    text: "Введите название шага сюда, чтобы создать новую карточку плана.",
+    placement: "top",
   },
   {
-    title: "Готово!",
-    text: "Теперь вы знаете, где писать цель, как добавлять шаги и где смотреть прогресс. Начните с создания первого шага!",
+    selector: ".task-form button[type=submit]",
+    title: "Кнопка создания карточки",
+    text: "Нажмите «+», чтобы добавить шаг. Новая карточка появится в задаче и будет отслеживаться автоматически.",
+    placement: "left",
+  },
+  {
+    selector: ".person-progress",
+    title: "Прогресс цели",
+    text: "Здесь отображается ваш текущий прогресс — процент и количество завершённых шагов.",
+    placement: "right",
   },
 ];
 
 let currentTourParticipantId = "";
 let currentTourStep = 0;
+let currentTourTarget = null;
 
 function openTour(participantId) {
   currentTourParticipantId = participantId;
   currentTourStep = 0;
-  renderTourStep();
   tourModal.hidden = false;
+  renderTourStep();
 }
 
 function renderTourStep() {
@@ -614,6 +634,10 @@ function renderTourStep() {
   tourDescription.textContent = step.text;
   tourStepCounter.textContent = `Шаг ${currentTourStep + 1} из ${tourSteps.length}`;
   tourNextButton.textContent = currentTourStep < tourSteps.length - 1 ? "Далее" : "Завершить";
+
+  const target = document.querySelector(step.selector) || document.querySelector("#profileView") || document.body;
+  updateTourHighlight(target);
+  positionTourCard(target, step.placement || "bottom");
 }
 
 function advanceTour() {
@@ -629,6 +653,80 @@ function advanceTour() {
     saveState();
   }
   tourModal.hidden = true;
+  clearTourHighlight();
+}
+
+function skipTour() {
+  const participant = findParticipant(currentTourParticipantId);
+  if (participant) {
+    participant.onboardingCompleted = true;
+    saveState();
+  }
+  closeModals();
+}
+
+function updateTourHighlight(target) {
+  clearTourHighlight();
+  if (!target || target === document.body) return;
+  currentTourTarget = target;
+  target.classList.add("tour-highlight");
+  target.style.zIndex = 29;
+}
+
+function clearTourHighlight() {
+  if (currentTourTarget) {
+    currentTourTarget.classList.remove("tour-highlight");
+    currentTourTarget.style.zIndex = "";
+    currentTourTarget = null;
+  }
+}
+
+function positionTourCard(target, placement) {
+  if (!tourCard) return;
+
+  if (target !== document.body) {
+    target.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+  }
+
+  requestAnimationFrame(() => {
+    const rect = target.getBoundingClientRect();
+    const cardRect = tourCard.getBoundingClientRect();
+    const offset = 14;
+    let top = 0;
+    let left = 0;
+
+    switch (placement) {
+      case "top":
+        top = rect.top - cardRect.height - offset;
+        left = rect.left + rect.width / 2 - cardRect.width / 2;
+        tourCard.classList.add("placement-top");
+        tourCard.classList.remove("placement-left", "placement-right", "placement-bottom");
+        break;
+      case "left":
+        top = rect.top + rect.height / 2 - cardRect.height / 2;
+        left = rect.left - cardRect.width - offset;
+        tourCard.classList.add("placement-left");
+        tourCard.classList.remove("placement-top", "placement-right", "placement-bottom");
+        break;
+      case "right":
+        top = rect.top + rect.height / 2 - cardRect.height / 2;
+        left = rect.right + offset;
+        tourCard.classList.add("placement-right");
+        tourCard.classList.remove("placement-top", "placement-left", "placement-bottom");
+        break;
+      default:
+        top = rect.bottom + offset;
+        left = rect.left + rect.width / 2 - cardRect.width / 2;
+        tourCard.classList.add("placement-bottom");
+        tourCard.classList.remove("placement-top", "placement-left", "placement-right");
+    }
+
+    top = Math.max(12, Math.min(top, window.innerHeight - cardRect.height - 12));
+    left = Math.max(12, Math.min(left, window.innerWidth - cardRect.width - 12));
+
+    tourCard.style.top = `${top + window.scrollY}px`;
+    tourCard.style.left = `${left + window.scrollX}px`;
+  });
 }
 
 function toSharedState(source, options = {}) {
@@ -681,6 +779,7 @@ function closeModals() {
   adminNewsModal.hidden = true;
   registrationPasswordModal.hidden = true;
   tourModal.hidden = true;
+  clearTourHighlight();
 }
 
 function openAdminNewsModal() {
