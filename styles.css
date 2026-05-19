@@ -325,6 +325,11 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
   white-space: nowrap;
 }
 
+.chart-row[data-place="2"] .champion-badge,
+.chart-row[data-place="3"] .champion-badge {
+  background: #5181b8;
+}
+
 .chart-track,
 .progress-track {
   height: 12px;

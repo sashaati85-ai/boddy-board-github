@@ -2127,7 +2127,7 @@ function renderResults() {
   }
 
   const rankedParticipants = getSortedParticipants();
-  const activeParticipants = rankedParticipants.filter((participant) => getProgress(participant.tasks).done > 0);
+  const activeParticipants = rankedParticipants.filter((participant) => getProgress(participant.tasks).percent > 0);
 
   if (activeParticipants.length === 0) {
     const empty = document.createElement("p");
@@ -2135,29 +2135,11 @@ function renderResults() {
     empty.textContent = "Пока никто не сделал шаги. Здесь появится рейтинг участников, когда появятся выполненные задачи.";
     resultChart.append(empty);
   } else {
-    const visibleParticipants = [];
-    let visibleGroups = 0;
-    let lastPercent = null;
+    const visibleParticipants = activeParticipants.slice(0, 3);
 
-    for (const participant of activeParticipants) {
+    visibleParticipants.forEach((participant, index) => {
       const progress = getProgress(participant.tasks);
-      if (progress.percent !== lastPercent) {
-        visibleGroups += 1;
-        if (visibleGroups > 3) break;
-        lastPercent = progress.percent;
-      }
-      visibleParticipants.push(participant);
-    }
-
-    const championPercent = visibleParticipants.reduce((maxPercent, participant) => {
-      const progress = getProgress(participant.tasks);
-      return Math.max(maxPercent, progress.percent);
-    }, 0);
-
-    visibleParticipants.forEach((participant) => {
-      const progress = getProgress(participant.tasks);
-      const isChampion = progress.percent === championPercent;
-      renderChartRow(participant, progress, isChampion);
+      renderChartRow(participant, progress, index + 1);
     });
   }
 
@@ -2167,21 +2149,45 @@ function renderResults() {
   });
 }
 
-function renderChartRow(participant, progress, isChampion) {
+function getPlaceBadge(place) {
+  if (place === 1) {
+    return {
+      key: "championBadge",
+      text: state.uiText?.championBadge || "Чемпион дня",
+    };
+  }
+  if (place === 2) {
+    return {
+      key: "secondPlaceBadge",
+      text: state.uiText?.secondPlaceBadge || "2 место",
+    };
+  }
+  return {
+    key: "thirdPlaceBadge",
+    text: state.uiText?.thirdPlaceBadge || "3 место",
+  };
+}
+
+function renderChartRow(participant, progress, place) {
   const node = chartTemplate.content.firstElementChild.cloneNode(true);
   const championBadge = node.querySelector(".champion-badge");
   const avatar = node.querySelector(".chart-avatar");
+  const isChampion = place === 1;
+  const placeBadge = getPlaceBadge(place);
 
   node.classList.toggle("is-active", isActive(participant.id));
   node.classList.toggle("is-viewed", state.viewedParticipantId === participant.id);
   node.classList.toggle("is-champion", isChampion);
+  node.dataset.place = String(place);
   if (avatar) {
     avatar.src = participant.picture || "";
     avatar.hidden = !participant.picture;
     avatar.alt = participant.picture ? `Фото ${participant.name}` : "";
   }
   node.querySelector(".chart-name").textContent = participant.name;
-  championBadge.hidden = !isChampion;
+  championBadge.dataset.editKey = placeBadge.key;
+  championBadge.textContent = placeBadge.text;
+  championBadge.hidden = false;
   node.querySelector(".chart-percent").textContent = `${progress.percent}%`;
   node.querySelector(".chart-bar").style.width = `${progress.percent}%`;
   node.addEventListener("click", () => viewParticipant(participant.id));
