@@ -2376,7 +2376,15 @@ function renderProfile() {
   deadlineInput.value = participant.deadline || "";
   deadlineInput.disabled = !canEditDeadline;
   deadlineInput.addEventListener("input", () => {
+    deadlineInput.classList.remove("is-invalid");
+    if (deadlineError) {
+      deadlineError.hidden = true;
+    }
+  });
+  deadlineInput.addEventListener("change", () => {
     const nextDeadline = deadlineInput.value;
+    if (nextDeadline === (participant.deadline || "")) return;
+
     if (!state.isAdmin && nextDeadline) {
       const confirmed = window.confirm(
         "Вы точно хотите именно на этот период времени? Если нажмёте «Да», изменить уже будет нельзя.",
