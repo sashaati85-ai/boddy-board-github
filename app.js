@@ -1885,10 +1885,19 @@ function isTaskComplete(task) {
   return Boolean(task.done);
 }
 
+function getTaskProgressRatio(task) {
+  if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+    const doneSubtasks = task.subtasks.filter((subtask) => Boolean(subtask.done)).length;
+    return doneSubtasks / task.subtasks.length;
+  }
+  return task.done ? 1 : 0;
+}
+
 function getProgress(tasks) {
   const total = tasks.length;
   const done = tasks.filter((task) => isTaskComplete(task)).length;
-  const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+  const progressUnits = tasks.reduce((sum, task) => sum + getTaskProgressRatio(task), 0);
+  const percent = total === 0 ? 0 : Math.round((progressUnits / total) * 100);
   return { total, done, percent };
 }
 
