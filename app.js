@@ -23,6 +23,7 @@ const defaultParticipant = {
 
 let state = createInitialState();
 let dragState = null;
+let touchDragTap = null;
 let textEditMode = false;
 
 const openLoginButton = document.querySelector("#openLoginButton");
@@ -1658,10 +1659,34 @@ function editTask(participantId, taskId) {
   render();
 }
 
+function canStartDrag(event, dragKey) {
+  if (!event.pointerType || event.pointerType === "mouse") return true;
+
+  const now = Date.now();
+  const previousTap = touchDragTap;
+  const isDoubleTap =
+    previousTap &&
+    previousTap.key === dragKey &&
+    now - previousTap.time < 450 &&
+    Math.abs(event.clientX - previousTap.x) < 28 &&
+    Math.abs(event.clientY - previousTap.y) < 28;
+
+  touchDragTap = isDoubleTap
+    ? null
+    : {
+        key: dragKey,
+        time: now,
+        x: event.clientX,
+        y: event.clientY,
+      };
+
+  return Boolean(isDoubleTap);
+}
+
 function beginCardDrag(event, participantId, taskId) {
-  if (event.pointerType && event.pointerType !== "mouse") return;
   if (event.button !== 0) return;
   if (event.target.closest("button, input, label, textarea")) return;
+  if (!canStartDrag(event, `task:${participantId}:${taskId}`)) return;
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId)) return;
 
@@ -1695,6 +1720,7 @@ function beginCardDrag(event, participantId, taskId) {
 
   window.addEventListener("pointermove", onCardDragMove);
   window.addEventListener("pointerup", endCardDrag);
+  window.addEventListener("pointercancel", endCardDrag);
 }
 
 function onCardDragMove(event) {
@@ -1729,6 +1755,7 @@ function endCardDrag() {
   const { participantId, taskId, card, clone, targetTaskId } = dragState;
   window.removeEventListener("pointermove", onCardDragMove);
   window.removeEventListener("pointerup", endCardDrag);
+  window.removeEventListener("pointercancel", endCardDrag);
   card.classList.remove("is-dragging");
   clone.remove();
   document.querySelectorAll(".task-card.drag-over").forEach((node) => node.classList.remove("drag-over"));
@@ -1755,9 +1782,9 @@ function moveDraggedTask(participantId, draggedTaskId, targetTaskId) {
 }
 
 function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
-  if (event.pointerType && event.pointerType !== "mouse") return;
   if (event.button !== 0) return;
   if (event.target.closest("button, input, label, textarea")) return;
+  if (!canStartDrag(event, `subtask:${participantId}:${taskId}:${subtaskId}`)) return;
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId)) return;
 
@@ -1796,6 +1823,7 @@ function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
 
   window.addEventListener("pointermove", onCardDragMove);
   window.addEventListener("pointerup", endCardDrag);
+  window.addEventListener("pointercancel", endCardDrag);
 }
 
 function onSubtaskDragMove(event) {
@@ -1817,6 +1845,7 @@ function endSubtaskDrag() {
   const { participantId, taskId, subtaskId, card, clone, targetSubtaskId } = dragState;
   window.removeEventListener("pointermove", onCardDragMove);
   window.removeEventListener("pointerup", endCardDrag);
+  window.removeEventListener("pointercancel", endCardDrag);
   card.classList.remove("is-dragging");
   clone.remove();
   document.querySelectorAll(".subtask-card.drag-over").forEach((node) => node.classList.remove("drag-over"));
