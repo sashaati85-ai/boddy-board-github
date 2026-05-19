@@ -902,12 +902,21 @@ textarea:focus {
 }
 
 .edit-task {
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0 10px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background: #fff;
+  color: var(--vk-blue-dark);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .task-card.drag-over {
@@ -953,7 +962,7 @@ body.is-dragging-card * {
 }
 
 .add-subtask,
-.edit-task {
+.edit-subtask {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 8px 14px;
@@ -1018,6 +1027,10 @@ body.is-dragging-card * {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.task-title-row .card-title {
+  flex: 1 1 auto;
 }
 
 .task-complete-badge {
@@ -1476,18 +1489,34 @@ body.is-dragging-card * {
   }
 
   .card-title {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
   }
 
   .subtask-controls {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     width: 100%;
   }
 
-  .add-subtask,
-  .edit-task {
+  .add-subtask {
     width: 100%;
+  }
+
+  .task-card,
+  .task-card *,
+  .subtask-card,
+  .subtask-card * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .task-card input,
+  .task-card textarea,
+  .subtask-card input,
+  .subtask-card textarea {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }
