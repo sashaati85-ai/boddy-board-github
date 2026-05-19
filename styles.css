@@ -887,7 +887,8 @@ textarea:focus {
   background: #eff7ff;
 }
 
-.task-card.is-dragging {
+.task-card.is-dragging,
+.subtask-card.is-dragging {
   opacity: 0.5;
 }
 
@@ -1028,6 +1029,11 @@ textarea:focus {
   background: #ffffff;
   margin-left: 18px;
   font-size: 14px;
+}
+
+.subtask-card.drag-over {
+  border-color: rgba(81, 129, 184, 0.65);
+  background: #eff7ff;
 }
 
 .subtask-card.is-done {

@@ -1547,6 +1547,21 @@ function reorderTasks(participant) {
   participant.tasks = [...incomplete, ...complete];
 }
 
+function reorderSubtasks(task) {
+  if (!Array.isArray(task.subtasks)) return;
+
+  const incomplete = [];
+  const complete = [];
+  task.subtasks.forEach((subtask) => {
+    if (subtask.done) {
+      complete.push(subtask);
+    } else {
+      incomplete.push(subtask);
+    }
+  });
+  task.subtasks = [...incomplete, ...complete];
+}
+
 function addSubtask(participantId, taskId, title) {
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId) || !title.trim()) return;
@@ -1578,6 +1593,7 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
   if (!subtask) return;
 
   subtask.done = done;
+  reorderSubtasks(task);
   reorderTasks(participant);
   archiveFinishedGoal(participant);
   saveState();
@@ -1592,6 +1608,7 @@ function deleteSubtask(participantId, taskId, subtaskId) {
   if (!task || !Array.isArray(task.subtasks)) return;
 
   task.subtasks = task.subtasks.filter((subtask) => subtask.id !== subtaskId);
+  reorderSubtasks(task);
   reorderTasks(participant);
   archiveFinishedGoal(participant);
   saveState();
@@ -1649,6 +1666,7 @@ function beginCardDrag(event, participantId, taskId) {
   card.classList.add("is-dragging");
 
   dragState = {
+    type: "task",
     participantId,
     taskId,
     card,
@@ -1667,6 +1685,11 @@ function onCardDragMove(event) {
   dragState.clone.style.left = `${event.clientX - dragState.offsetX}px`;
   dragState.clone.style.top = `${event.clientY - dragState.offsetY}px`;
 
+  if (dragState.type === "subtask") {
+    onSubtaskDragMove(event);
+    return;
+  }
+
   const element = document.elementFromPoint(event.clientX, event.clientY);
   const newTarget = element?.closest(".task-card");
   if (newTarget && newTarget !== dragState.card) {
@@ -1681,6 +1704,11 @@ function onCardDragMove(event) {
 
 function endCardDrag() {
   if (!dragState) return;
+  if (dragState.type === "subtask") {
+    endSubtaskDrag();
+    return;
+  }
+
   const { participantId, taskId, card, clone, targetTaskId } = dragState;
   window.removeEventListener("pointermove", onCardDragMove);
   window.removeEventListener("pointerup", endCardDrag);
@@ -1705,6 +1733,93 @@ function moveDraggedTask(participantId, draggedTaskId, targetTaskId) {
 
   const [draggedTask] = participant.tasks.splice(draggedIndex, 1);
   participant.tasks.splice(targetIndex, 0, draggedTask);
+  saveState();
+  render();
+}
+
+function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
+  if (event.button !== 0) return;
+  if (event.target.closest("button, input, label, textarea")) return;
+  const participant = findParticipant(participantId);
+  if (!participant || !isActive(participantId)) return;
+
+  const task = participant.tasks.find((item) => item.id === taskId);
+  if (!task?.subtasks?.some((subtask) => subtask.id === subtaskId)) return;
+
+  event.preventDefault();
+  const card = event.currentTarget;
+  const rect = card.getBoundingClientRect();
+  const clone = card.cloneNode(true);
+  clone.classList.add("drag-ghost");
+  clone.style.position = "fixed";
+  clone.style.left = `${rect.left}px`;
+  clone.style.top = `${rect.top}px`;
+  clone.style.width = `${rect.width}px`;
+  clone.style.height = `${rect.height}px`;
+  clone.style.margin = "0";
+  clone.style.pointerEvents = "none";
+  clone.style.opacity = "0.92";
+  clone.style.zIndex = "10000";
+  document.body.append(clone);
+  card.classList.add("is-dragging");
+
+  dragState = {
+    type: "subtask",
+    participantId,
+    taskId,
+    subtaskId,
+    card,
+    clone,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    targetSubtaskId: null,
+  };
+
+  window.addEventListener("pointermove", onCardDragMove);
+  window.addEventListener("pointerup", endCardDrag);
+}
+
+function onSubtaskDragMove(event) {
+  const element = document.elementFromPoint(event.clientX, event.clientY);
+  const newTarget = element?.closest(".subtask-card");
+  if (newTarget && newTarget !== dragState.card) {
+    document.querySelectorAll(".subtask-card.drag-over").forEach((node) => node.classList.remove("drag-over"));
+    newTarget.classList.add("drag-over");
+    dragState.targetSubtaskId = newTarget.dataset.subtaskId;
+  } else {
+    document.querySelectorAll(".subtask-card.drag-over").forEach((node) => node.classList.remove("drag-over"));
+    dragState.targetSubtaskId = null;
+  }
+}
+
+function endSubtaskDrag() {
+  const { participantId, taskId, subtaskId, card, clone, targetSubtaskId } = dragState;
+  window.removeEventListener("pointermove", onCardDragMove);
+  window.removeEventListener("pointerup", endCardDrag);
+  card.classList.remove("is-dragging");
+  clone.remove();
+  document.querySelectorAll(".subtask-card.drag-over").forEach((node) => node.classList.remove("drag-over"));
+
+  if (targetSubtaskId && targetSubtaskId !== subtaskId) {
+    moveDraggedSubtask(participantId, taskId, subtaskId, targetSubtaskId);
+  }
+
+  dragState = null;
+}
+
+function moveDraggedSubtask(participantId, taskId, draggedSubtaskId, targetSubtaskId) {
+  const participant = findParticipant(participantId);
+  if (!participant || !isActive(participantId)) return;
+
+  const task = participant.tasks.find((item) => item.id === taskId);
+  if (!task || !Array.isArray(task.subtasks)) return;
+
+  const draggedIndex = task.subtasks.findIndex((item) => item.id === draggedSubtaskId);
+  const targetIndex = task.subtasks.findIndex((item) => item.id === targetSubtaskId);
+  if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) return;
+
+  const [draggedSubtask] = task.subtasks.splice(draggedIndex, 1);
+  task.subtasks.splice(targetIndex, 0, draggedSubtask);
   saveState();
   render();
 }
@@ -2239,6 +2354,7 @@ function createSubtaskCard(participantId, taskId, subtask, editable) {
   const checkbox = card.querySelector(".complete-checkbox");
   const editButton = card.querySelector(".edit-subtask");
 
+  card.dataset.subtaskId = subtask.id;
   card.classList.toggle("is-done", Boolean(subtask.done));
   card.querySelector(".card-title").textContent = subtask.title;
   checkbox.checked = Boolean(subtask.done);
@@ -2246,6 +2362,7 @@ function createSubtaskCard(participantId, taskId, subtask, editable) {
   editButton.hidden = !editable;
 
   checkbox.addEventListener("change", () => toggleSubtask(participantId, taskId, subtask.id, checkbox.checked));
+  card.addEventListener("pointerdown", (event) => beginSubtaskDrag(event, participantId, taskId, subtask.id));
 
   // Inline editor for subtask
   let editor = null;
