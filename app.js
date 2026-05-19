@@ -4,6 +4,7 @@ const LEGACY_KEYS = ["boddy-board-v1", "goal-board-v1"];
 const SHARED_STATE_URL = "https://boddy-board-github.vercel.app/api/state";
 const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
+const PASSWORD_RESET_CODE = "Любовь";
 const DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
 const DEFAULT_COVER_URL = "assets/boddy-cover.png";
 
@@ -56,6 +57,11 @@ const adminUsernameInput = document.querySelector("#adminUsernameInput");
 const adminPasswordInput = document.querySelector("#adminPasswordInput");
 const newAdminPasswordInput = document.querySelector("#newAdminPasswordInput");
 const saveAdminPasswordButton = document.querySelector("#saveAdminPasswordButton");
+const forgotAdminPasswordButton = document.querySelector("#forgotAdminPasswordButton");
+const passwordResetModal = document.querySelector("#passwordResetModal");
+const passwordResetCodeInput = document.querySelector("#passwordResetCodeInput");
+const resetAllPasswordsButton = document.querySelector("#resetAllPasswordsButton");
+const passwordResetMessage = document.querySelector("#passwordResetMessage");
 const participantPhotoSelect = document.querySelector("#participantPhotoSelect");
 const participantPhotoUrlInput = document.querySelector("#participantPhotoUrlInput");
 const participantPhotoFileInput = document.querySelector("#participantPhotoFileInput");
@@ -142,6 +148,8 @@ joinButton.addEventListener("click", joinAsParticipant);
 participantLogoutButton.addEventListener("click", logoutParticipant);
 adminLoginButton.addEventListener("click", loginAsAdmin);
 saveAdminPasswordButton?.addEventListener("click", saveAdminPassword);
+forgotAdminPasswordButton?.addEventListener("click", openPasswordResetModal);
+resetAllPasswordsButton?.addEventListener("click", resetAllPasswords);
 brandLogo?.addEventListener("click", () => openSiteImagePicker(logoImageInput));
 heroCover?.addEventListener("click", () => openSiteImagePicker(coverImageInput));
 logoImageInput?.addEventListener("change", () => updateSiteImage("logo", logoImageInput));
@@ -176,6 +184,11 @@ setInterval(refreshSharedState, 5000);
 adminPasswordInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     loginAsAdmin();
+  }
+});
+passwordResetCodeInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    resetAllPasswords();
   }
 });
 adminUsernameInput?.addEventListener("keydown", (event) => {
@@ -962,6 +975,15 @@ function openModal(modal, focusTarget) {
   if (modal === adminModal) {
     renderAdminPanel();
   }
+  if (modal === passwordResetModal) {
+    if (passwordResetMessage) {
+      passwordResetMessage.textContent = "";
+      passwordResetMessage.classList.remove("is-error");
+    }
+    if (passwordResetCodeInput) {
+      passwordResetCodeInput.value = "";
+    }
+  }
   if (modal === registrationPasswordModal) {
     if (registrationPasswordStatus) {
       registrationPasswordStatus.textContent = state.registrationPasswordHash
@@ -979,6 +1001,7 @@ function openModal(modal, focusTarget) {
 function closeModals() {
   loginModal.hidden = true;
   adminModal.hidden = true;
+  passwordResetModal.hidden = true;
   adminNewsModal.hidden = true;
   registrationPasswordModal.hidden = true;
   tourModal.hidden = true;
@@ -993,6 +1016,10 @@ function openAdminNewsModal() {
 
 function openAdminPanel() {
   openModal(adminModal, state.isAdmin ? newAdminPasswordInput : adminUsernameInput);
+}
+
+function openPasswordResetModal() {
+  openModal(passwordResetModal, passwordResetCodeInput);
 }
 
 async function joinAsParticipant() {
@@ -1156,6 +1183,36 @@ async function saveAdminPassword() {
   showAdminMessage("Пароль администратора изменён.", false);
   render();
   openAdminPanel();
+}
+
+async function resetAllPasswords() {
+  const code = passwordResetCodeInput?.value.trim() || "";
+  if (code.toLowerCase() !== PASSWORD_RESET_CODE.toLowerCase()) {
+    if (passwordResetMessage) {
+      passwordResetMessage.textContent = "Кодовое слово неверное.";
+      passwordResetMessage.classList.add("is-error");
+    }
+    passwordResetCodeInput?.select();
+    return;
+  }
+
+  state.adminPasswordHash = await getAdminPasswordHash(DEFAULT_ADMIN_PASSWORD);
+  state.adminPasswordChanged = false;
+  state.registrationPasswordHash = "";
+  state.participants.forEach((participant) => {
+    participant.passwordHash = "";
+  });
+  state.isAdmin = false;
+  localStorage.removeItem(SESSION_KEY);
+  saveState();
+
+  if (passwordResetMessage) {
+    passwordResetMessage.textContent =
+      "Пароли сброшены. Теперь войдите как администратор: Sasha / S_asha2305.";
+    passwordResetMessage.classList.remove("is-error");
+  }
+  passwordResetCodeInput.value = "";
+  render();
 }
 
 function logoutAdmin() {

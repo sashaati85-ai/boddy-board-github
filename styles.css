@@ -1326,6 +1326,15 @@ body.is-dragging-card * {
   width: 100%;
 }
 
+.forgot-password-button {
+  border: 0;
+  padding: 4px 0 0;
+  background: transparent;
+  color: var(--vk-blue-dark);
+  font-weight: 850;
+  text-align: center;
+}
+
 .admin-announcement {
   display: grid;
   gap: 12px;
