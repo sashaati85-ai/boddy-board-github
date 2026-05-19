@@ -16,6 +16,7 @@ const defaultParticipant = {
   passwordHash: "",
   goal: "Провести сильную неделю Boddy",
   deadline: "",
+  deadlineLocked: false,
   tasks: [
     createTask("Написать цель", true),
     createTask("Разбить цель на шаги", true),
@@ -309,6 +310,7 @@ function normalizeState(candidate) {
     passwordHash: person.passwordHash || "",
     goal: person.goal || "",
     deadline: person.deadline || "",
+    deadlineLocked: Boolean(person.deadlineLocked),
     onboardingCompleted: Boolean(person.onboardingCompleted),
     archivedGoals: Array.isArray(person.archivedGoals)
       ? person.archivedGoals.map((goal) => ({
@@ -631,6 +633,7 @@ function createGoogleParticipant({ email, name, picture, isNew }) {
     passwordHash: "",
     goal: "",
     deadline: "",
+    deadlineLocked: false,
     tasks: [],
     archivedGoals: [],
     onboardingCompleted: false,
@@ -1032,6 +1035,7 @@ async function joinAsParticipant() {
       picture: uploadedPicture,
       goal: "",
       deadline: "",
+      deadlineLocked: false,
       tasks: [],
       archivedGoals: [],
       onboardingCompleted: false,
@@ -1480,6 +1484,7 @@ function archiveFinishedGoal(participant) {
   });
   participant.goal = "";
   participant.deadline = "";
+  participant.deadlineLocked = false;
   participant.tasks = [];
   return true;
 }
@@ -1503,9 +1508,10 @@ function updateGoal(participantId, goal) {
 
 function updateDeadline(participantId, deadline) {
   const participant = findParticipant(participantId);
-  if (!participant || !isActive(participantId)) return;
+  if (!participant || (!isActive(participantId) && !state.isAdmin)) return;
 
   participant.deadline = deadline;
+  participant.deadlineLocked = Boolean(deadline);
   archiveFinishedGoal(participant);
   saveState();
   render();
@@ -2159,12 +2165,12 @@ function getPlaceBadge(place) {
   if (place === 2) {
     return {
       key: "secondPlaceBadge",
-      text: state.uiText?.secondPlaceBadge || "🥈🥈 Второе место",
+      text: state.uiText?.secondPlaceBadge || "🥈🥈",
     };
   }
   return {
     key: "thirdPlaceBadge",
-    text: state.uiText?.thirdPlaceBadge || "🥉 Третье место",
+    text: state.uiText?.thirdPlaceBadge || "🥉",
   };
 }
 
@@ -2239,6 +2245,7 @@ function renderProfile() {
 
   const progress = getProgress(participant.tasks);
   const editable = isActive(participant.id);
+  const canEditDeadline = state.isAdmin || (editable && !participant.deadlineLocked);
   const node = profileTemplate.content.firstElementChild.cloneNode(true);
   const goalInput = node.querySelector(".person-goal");
   const deadlineInput = node.querySelector(".person-deadline");
@@ -2272,13 +2279,23 @@ function renderProfile() {
   goalInput.addEventListener("input", () => updateGoal(participant.id, goalInput.value.trim()));
 
   deadlineInput.value = participant.deadline || "";
-  deadlineInput.disabled = !editable;
+  deadlineInput.disabled = !canEditDeadline;
   deadlineInput.addEventListener("input", () => {
+    const nextDeadline = deadlineInput.value;
+    if (!state.isAdmin && nextDeadline) {
+      const confirmed = window.confirm(
+        "Вы точно хотите именно на этот период времени? Если нажмёте «Да», изменить уже будет нельзя.",
+      );
+      if (!confirmed) {
+        deadlineInput.value = participant.deadline || "";
+        return;
+      }
+    }
     deadlineInput.classList.remove("is-invalid");
     if (deadlineError) {
       deadlineError.hidden = true;
     }
-    updateDeadline(participant.id, deadlineInput.value);
+    updateDeadline(participant.id, nextDeadline);
   });
 
   taskForm.hidden = !editable;
