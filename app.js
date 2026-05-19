@@ -25,11 +25,13 @@ const defaultParticipant = {
 
 let state = createInitialState();
 let dragState = null;
+let textEditMode = false;
 
 const openLoginButton = document.querySelector("#openLoginButton");
 const participantLogoutButton = document.querySelector("#participantLogoutButton");
 const openAdminButton = document.querySelector("#openAdminButton");
 const openAdminSettingsButton = document.querySelector("#openAdminSettingsButton");
+const toggleTextEditButton = document.querySelector("#toggleTextEditButton");
 const openRegistrationPasswordButton = document.querySelector("#openRegistrationPasswordButton");
 const registrationStatus = document.querySelector("#registrationStatus");
 const loginModal = document.querySelector("#loginModal");
@@ -46,6 +48,7 @@ const tourSkipButton = document.querySelector("#tourSkipButton");
 const nameInput = document.querySelector("#nameInput");
 const passwordInput = document.querySelector("#passwordInput");
 const registrationKeyInput = document.querySelector("#registrationKeyInput");
+const participantPhotoInput = document.querySelector("#participantPhotoInput");
 const joinButton = document.querySelector("#joinButton");
 const googleSignInButton = document.querySelector("#googleSignInButton");
 const adminLoginPanel = document.querySelector("#adminLoginPanel");
@@ -103,6 +106,7 @@ initialize();
 openLoginButton.addEventListener("click", () => openModal(loginModal, registrationKeyInput || nameInput));
 openAdminButton?.addEventListener("click", openAdminPanel);
 openAdminSettingsButton?.addEventListener("click", openAdminPanel);
+toggleTextEditButton?.addEventListener("click", toggleTextEditMode);
 openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
 tourNextButton?.addEventListener("click", advanceTour);
 tourSkipButton?.addEventListener("click", skipTour);
@@ -134,6 +138,7 @@ document.addEventListener("keydown", (event) => {
   }
   closeModals();
 });
+document.addEventListener("click", handleEditableTextClick, true);
 joinButton.addEventListener("click", joinAsParticipant);
 participantLogoutButton.addEventListener("click", logoutParticipant);
 adminLoginButton.addEventListener("click", loginAsAdmin);
@@ -343,6 +348,8 @@ function normalizeState(candidate) {
     adminPasswordChanged: Boolean(candidate.adminPasswordChanged),
     registrationPasswordHash: candidate.registrationPasswordHash || "",
     siteImages: normalizeSiteImages(candidate.siteImages),
+    uiText: normalizeEditableMap(candidate.uiText),
+    uiPlaceholders: normalizeEditableMap(candidate.uiPlaceholders),
     announcement: normalizeAnnouncement(candidate.announcement),
     deletedParticipantIds: Array.isArray(candidate.deletedParticipantIds)
       ? candidate.deletedParticipantIds
@@ -376,6 +383,16 @@ function normalizeSiteImages(siteImages) {
     logo: String(siteImages.logo || "").trim() || defaults.logo,
     cover: !cover || cover === DEFAULT_LOGO_URL ? defaults.cover : cover,
   };
+}
+
+function normalizeEditableMap(value) {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, text]) => [String(key), String(text)])
+      .filter(([key]) => key),
+  );
 }
 
 function migrateLegacyState() {
@@ -421,6 +438,8 @@ function migrateLegacyState() {
       adminPasswordHash: "",
       adminPasswordChanged: false,
       siteImages: createDefaultSiteImages(),
+      uiText: {},
+      uiPlaceholders: {},
       announcement: null,
       deletedParticipantIds: [],
       isAdmin: false,
@@ -439,6 +458,8 @@ function createInitialState() {
     adminPasswordChanged: false,
     registrationPasswordHash: "",
     siteImages: createDefaultSiteImages(),
+    uiText: {},
+    uiPlaceholders: {},
     announcement: null,
     deletedParticipantIds: [],
     isAdmin: false,
@@ -897,6 +918,8 @@ function toSharedState(source, options = {}) {
     adminPasswordChanged: Boolean(source.adminPasswordChanged),
     registrationPasswordHash: source.registrationPasswordHash || "",
     siteImages: normalizeSiteImages(source.siteImages),
+    uiText: normalizeEditableMap(source.uiText),
+    uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
     announcement: source.announcement,
     deletedParticipantIds: source.deletedParticipantIds || [],
     allowEmptyParticipants: Boolean(options.allowEmptyParticipants),
@@ -962,6 +985,7 @@ async function joinAsParticipant() {
   const name = nameInput.value.trim();
   const password = passwordInput.value;
   const registrationKey = registrationKeyInput?.value.trim();
+  const uploadedPicture = await readOptionalImageFile(participantPhotoInput);
 
   if (!name) {
     showAuthMessage("Введите имя.", true);
@@ -1005,6 +1029,7 @@ async function joinAsParticipant() {
       id: crypto.randomUUID(),
       name,
       passwordHash,
+      picture: uploadedPicture,
       goal: "",
       deadline: "",
       tasks: [],
@@ -1015,12 +1040,14 @@ async function joinAsParticipant() {
     showAuthMessage("Аккаунт создан. Теперь это ваша страница.", false);
   } else if (!participant.passwordHash) {
     participant.passwordHash = passwordHash;
+    participant.picture = uploadedPicture || participant.picture || "";
     showAuthMessage("Пароль сохранён для этого имени.", false);
   } else if (participant.passwordHash !== passwordHash) {
     showAuthMessage("Пароль не подходит для этого имени.", true);
     passwordInput.select();
     return;
   } else {
+    participant.picture = uploadedPicture || participant.picture || "";
     showAuthMessage("Вы вошли в свою страницу.", false);
   }
 
@@ -1028,6 +1055,7 @@ async function joinAsParticipant() {
   state.viewedParticipantId = participant.id;
   nameInput.value = "";
   passwordInput.value = "";
+  clearFileInput(participantPhotoInput);
   if (registrationKeyInput) registrationKeyInput.value = "";
   saveState();
   closeModals();
@@ -1117,6 +1145,7 @@ async function saveAdminPassword() {
 
 function logoutAdmin() {
   state.isAdmin = false;
+  textEditMode = false;
   closeModals();
   showAdminMessage("Администратор вышел.", false);
   saveState();
@@ -1221,6 +1250,83 @@ function clearParticipantPhoto() {
   openAdminPanel();
 }
 
+function toggleTextEditMode() {
+  if (!state.isAdmin) return;
+  textEditMode = !textEditMode;
+  render();
+  showAdminMessage(
+    textEditMode
+      ? "Режим редактирования включён. Нажмите на текст или кнопку на сайте."
+      : "Режим редактирования выключен.",
+    false,
+  );
+}
+
+function handleEditableTextClick(event) {
+  if (!state.isAdmin || !textEditMode) return;
+
+  const target = event.target.closest("[data-edit-key], [data-placeholder-key]");
+  if (!target || !document.body.contains(target)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+
+  if (target.dataset.placeholderKey) {
+    editPlaceholder(target);
+    return;
+  }
+
+  editText(target);
+}
+
+function editText(element) {
+  const key = element.dataset.editKey;
+  const currentText = state.uiText?.[key] ?? element.textContent.trim();
+  const nextText = window.prompt("Изменить текст", currentText);
+  if (nextText === null) return;
+
+  state.uiText = normalizeEditableMap({
+    ...state.uiText,
+    [key]: nextText.trim(),
+  });
+  saveState();
+  applyEditableText();
+}
+
+function editPlaceholder(element) {
+  const key = element.dataset.placeholderKey;
+  const currentText = state.uiPlaceholders?.[key] ?? element.placeholder;
+  const nextText = window.prompt("Изменить подсказку в поле", currentText);
+  if (nextText === null) return;
+
+  state.uiPlaceholders = normalizeEditableMap({
+    ...state.uiPlaceholders,
+    [key]: nextText.trim(),
+  });
+  saveState();
+  applyEditableText();
+}
+
+function applyEditableText() {
+  const uiText = normalizeEditableMap(state.uiText);
+  const uiPlaceholders = normalizeEditableMap(state.uiPlaceholders);
+
+  document.querySelectorAll("[data-edit-key]").forEach((element) => {
+    const value = uiText[element.dataset.editKey];
+    if (typeof value === "string") {
+      element.textContent = value;
+    }
+  });
+
+  document.querySelectorAll("[data-placeholder-key]").forEach((element) => {
+    const value = uiPlaceholders[element.dataset.placeholderKey];
+    if (typeof value === "string") {
+      element.placeholder = value;
+    }
+  });
+}
+
 async function getImageValue(urlInput, fileInput, fallback) {
   if (fileInput?.files?.[0]) {
     return readImageFile(fileInput.files[0]);
@@ -1236,6 +1342,11 @@ function readImageFile(file) {
     reader.addEventListener("error", reject);
     reader.readAsDataURL(file);
   });
+}
+
+async function readOptionalImageFile(input) {
+  if (!input?.files?.[0]) return "";
+  return readImageFile(input.files[0]);
 }
 
 function clearFileInput(input) {
@@ -1733,6 +1844,7 @@ function render() {
   renderResults();
   renderProfile();
   renderAnnouncementModal();
+  applyEditableText();
   if (tourModal && !tourModal.hidden) {
     renderTourStep();
   }
@@ -1740,6 +1852,7 @@ function render() {
 
 function renderAdminControls() {
   document.body.classList.toggle("is-admin", state.isAdmin);
+  document.body.classList.toggle("is-text-edit-mode", state.isAdmin && textEditMode);
   if (openAdminButton) {
     openAdminButton.hidden = true;
   }
@@ -1748,6 +1861,10 @@ function renderAdminControls() {
   openRegistrationPasswordButton.hidden = !state.isAdmin;
   if (openAdminSettingsButton) {
     openAdminSettingsButton.hidden = !state.isAdmin;
+  }
+  if (toggleTextEditButton) {
+    toggleTextEditButton.hidden = !state.isAdmin;
+    toggleTextEditButton.textContent = textEditMode ? "Готово с текстами" : "Редактировать тексты";
   }
   adminLogoutButton.hidden = !state.isAdmin;
   adminAnnouncementPanel.hidden = !state.isAdmin;
@@ -1925,10 +2042,16 @@ function renderResults() {
 function renderChartRow(participant, progress, isChampion) {
   const node = chartTemplate.content.firstElementChild.cloneNode(true);
   const championBadge = node.querySelector(".champion-badge");
+  const avatar = node.querySelector(".chart-avatar");
 
   node.classList.toggle("is-active", isActive(participant.id));
   node.classList.toggle("is-viewed", state.viewedParticipantId === participant.id);
   node.classList.toggle("is-champion", isChampion);
+  if (avatar) {
+    avatar.src = participant.picture || "";
+    avatar.hidden = !participant.picture;
+    avatar.alt = participant.picture ? `Фото ${participant.name}` : "";
+  }
   node.querySelector(".chart-name").textContent = participant.name;
   championBadge.hidden = !isChampion;
   node.querySelector(".chart-percent").textContent = `${progress.percent}%`;
@@ -1941,11 +2064,18 @@ function renderChartRow(participant, progress, isChampion) {
 function renderTableRow(participant, progress) {
   const row = tableRowTemplate.content.firstElementChild.cloneNode(true);
   const nameButton = row.querySelector(".table-name");
+  const nameText = row.querySelector(".table-name-text");
+  const avatar = row.querySelector(".table-avatar");
   const adminCell = row.querySelector(".table-admin");
   const adminDeleteButton = row.querySelector(".admin-delete");
 
   row.classList.toggle("is-viewed", state.viewedParticipantId === participant.id);
-  nameButton.textContent = participant.name;
+  nameText.textContent = participant.name;
+  if (avatar) {
+    avatar.src = participant.picture || "";
+    avatar.hidden = !participant.picture;
+    avatar.alt = participant.picture ? `Фото ${participant.name}` : "";
+  }
   nameButton.addEventListener("click", () => viewParticipant(participant.id));
   row.querySelector(".table-goal").textContent = participant.goal || "Цель ещё не указана";
   const deadlinePill = row.querySelector(".deadline-pill");

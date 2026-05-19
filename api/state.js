@@ -9,6 +9,8 @@ function normalizeSharedState(value) {
     adminPasswordChanged: Boolean(source.adminPasswordChanged),
     registrationPasswordHash: source.registrationPasswordHash || "",
     siteImages: normalizeSiteImages(source.siteImages),
+    uiText: normalizeEditableMap(source.uiText),
+    uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
     announcement: source.announcement || null,
     deletedParticipantIds: Array.isArray(source.deletedParticipantIds)
       ? source.deletedParticipantIds
@@ -49,13 +51,15 @@ module.exports = async function handler(request, response) {
     });
     const currentData = currentResponse.ok
       ? normalizeSharedState(await currentResponse.json())
-      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), announcement: null, deletedParticipantIds: [] };
+      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), uiText: {}, uiPlaceholders: {}, announcement: null, deletedParticipantIds: [] };
     const deletedIds = new Set([
       ...currentData.deletedParticipantIds,
       ...data.deletedParticipantIds,
     ]);
 
     data.adminPasswordChanged = data.adminPasswordChanged || currentData.adminPasswordChanged;
+    data.uiText = { ...currentData.uiText, ...data.uiText };
+    data.uiPlaceholders = { ...currentData.uiPlaceholders, ...data.uiPlaceholders };
     data.deletedParticipantIds = [...deletedIds];
     data.participants = data.participants.filter(
       (participant) =>
@@ -98,4 +102,14 @@ function normalizeSiteImages(siteImages = {}) {
     logo: typeof siteImages.logo === "string" ? siteImages.logo : "",
     cover: typeof siteImages.cover === "string" ? siteImages.cover : "",
   };
+}
+
+function normalizeEditableMap(value = {}) {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, text]) => [String(key), String(text)])
+      .filter(([key]) => key),
+  );
 }

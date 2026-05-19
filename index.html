@@ -14,16 +14,17 @@
           <input id="logoImageInput" class="image-picker-input" type="file" accept="image/*" aria-label="Поменять логотип">
           <div>
             <p class="eyebrow">Твой Бадди</p>
-            <h1>Boddy Board</h1>
+            <h1 data-edit-key="siteTitle">Boddy Board</h1>
             <span id="activeBadge" class="active-badge">Войдите по имени</span>
           </div>
         </div>
         <img id="activeAvatar" class="active-avatar" hidden alt="Фото пользователя">
         <div class="top-actions">
-          <button id="openLoginButton" class="primary-action" type="button">Вход участника</button>
-          <button id="participantLogoutButton" class="ghost-action" type="button" hidden>Выйти из учётной записи</button>
-          <button id="openRegistrationPasswordButton" class="ghost-action" type="button" hidden>Пароль регистрации</button>
-          <button id="openAdminSettingsButton" class="ghost-action" type="button" hidden>Сменить пароль админа</button>
+          <button id="openLoginButton" class="primary-action" type="button" data-edit-key="openLoginButton">Вход участника</button>
+          <button id="participantLogoutButton" class="ghost-action" type="button" hidden data-edit-key="participantLogoutButton">Выйти из учётной записи</button>
+          <button id="openRegistrationPasswordButton" class="ghost-action" type="button" hidden data-edit-key="openRegistrationPasswordButton">Пароль регистрации</button>
+          <button id="openAdminSettingsButton" class="ghost-action" type="button" hidden data-edit-key="openAdminSettingsButton">Сменить пароль админа</button>
+          <button id="toggleTextEditButton" class="ghost-action" type="button" hidden>Редактировать тексты</button>
           <span id="registrationStatus" class="registration-status"></span>
           <button id="openAnnouncementButton" class="primary-action" type="button" hidden>Опубликовать новость</button>
         </div>
@@ -37,8 +38,8 @@
       <section class="results-panel" aria-label="Таблица и график результатов">
         <div>
           <div class="section-heading">
-            <p class="eyebrow">Результаты прямо сейчас</p>
-            <h2>Кто где находится</h2>
+            <p class="eyebrow" data-edit-key="resultsEyebrow">Результаты прямо сейчас</p>
+            <h2 data-edit-key="resultsTitle">Кто где находится</h2>
           </div>
           <div id="resultChart" class="result-chart"></div>
         </div>
@@ -46,12 +47,12 @@
           <table>
             <thead>
               <tr>
-                <th>Участник</th>
-                <th>Цель</th>
-                <th>До какого числа</th>
-                <th>Готово</th>
-                <th>Прогресс</th>
-                <th id="deleteColumnHeader" class="admin-only">Удаление</th>
+                <th data-edit-key="participantColumnTitle">Участник</th>
+                <th data-edit-key="goalColumnTitle">Цель</th>
+                <th data-edit-key="deadlineColumnTitle">До какого числа</th>
+                <th data-edit-key="doneColumnTitle">Готово</th>
+                <th data-edit-key="progressColumnTitle">Прогресс</th>
+                <th id="deleteColumnHeader" class="admin-only" data-edit-key="deleteColumnTitle">Удаление</th>
               </tr>
             </thead>
             <tbody id="resultTable"></tbody>
@@ -61,15 +62,15 @@
 
       <section class="stats-grid" aria-label="Общая сводка группы">
         <article class="stat-card">
-          <span>Участников</span>
+          <span data-edit-key="peopleCountLabel">Участников</span>
           <strong id="peopleCount">0</strong>
         </article>
         <article class="stat-card">
-          <span>Всего шагов</span>
+          <span data-edit-key="totalTasksLabel">Всего шагов</span>
           <strong id="totalTasks">0</strong>
         </article>
         <article class="stat-card highlight">
-          <span>Готово</span>
+          <span data-edit-key="doneTasksLabel">Готово</span>
           <strong id="doneTasks">0</strong>
         </article>
       </section>
@@ -80,69 +81,73 @@
     <div id="loginModal" class="modal-layer" hidden>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
         <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
-        <p class="eyebrow">Участник</p>
-        <h2 id="loginTitle">Вход в свою страницу</h2>
+        <p class="eyebrow" data-edit-key="loginEyebrow">Участник</p>
+        <h2 id="loginTitle" data-edit-key="loginTitle">Вход в свою страницу</h2>
         <div class="modal-form">
-          <input id="registrationKeyInput" type="password" maxlength="60" placeholder="Пароль для регистрации">
-          <input id="nameInput" type="text" maxlength="40" placeholder="Ваше имя">
-          <input id="passwordInput" type="password" maxlength="60" placeholder="Пароль">
-          <button id="joinButton" class="primary-action" type="button">Войти / создать</button>
+          <input id="registrationKeyInput" type="password" maxlength="60" placeholder="Пароль для регистрации" data-placeholder-key="registrationKeyPlaceholder">
+          <input id="nameInput" type="text" maxlength="40" placeholder="Ваше имя" data-placeholder-key="namePlaceholder">
+          <input id="passwordInput" type="password" maxlength="60" placeholder="Пароль" data-placeholder-key="passwordPlaceholder">
+          <label class="photo-upload-label">
+            <span data-edit-key="participantAvatarLabel">Аватарка участника</span>
+            <input id="participantPhotoInput" type="file" accept="image/*">
+          </label>
+          <button id="joinButton" class="primary-action" type="button" data-edit-key="joinButton">Войти / создать</button>
           <div id="googleSignInButton" class="google-signin"></div>
         </div>
         <p id="authMessage" class="auth-message"></p>
-        <p class="modal-note">Для регистрации нового участника нужен пароль администратора. Если вы уже зарегистрированы, достаточно имени и пароля.</p>
+        <p class="modal-note" data-edit-key="loginNote">Для регистрации нового участника нужен пароль администратора. Если вы уже зарегистрированы, достаточно имени и пароля.</p>
       </section>
     </div>
 
     <div id="adminModal" class="modal-layer" hidden>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
         <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
-        <p class="eyebrow">Администратор</p>
-        <h2 id="adminTitle">Административная панель</h2>
+        <p class="eyebrow" data-edit-key="adminEyebrow">Администратор</p>
+        <h2 id="adminTitle" data-edit-key="adminTitle">Административная панель</h2>
         <div id="adminLoginPanel" class="modal-form">
-          <input id="adminUsernameInput" type="text" maxlength="40" autocomplete="username" placeholder="Логин администратора">
-          <input id="adminPasswordInput" type="password" maxlength="60" placeholder="Пароль администратора">
-          <button id="adminLoginButton" class="primary-action" type="button">Войти как админ</button>
+          <input id="adminUsernameInput" type="text" maxlength="40" autocomplete="username" placeholder="Логин администратора" data-placeholder-key="adminUsernamePlaceholder">
+          <input id="adminPasswordInput" type="password" maxlength="60" placeholder="Пароль администратора" data-placeholder-key="adminPasswordPlaceholder">
+          <button id="adminLoginButton" class="primary-action" type="button" data-edit-key="adminLoginButton">Войти как админ</button>
         </div>
         <div id="adminSettingsPanel" class="admin-settings-panel" hidden>
           <label class="announcement-label">
-            <span>Новый пароль для Sasha</span>
-            <input id="newAdminPasswordInput" type="password" maxlength="60" autocomplete="new-password" placeholder="Новый пароль администратора">
+            <span data-edit-key="newAdminPasswordLabel">Новый пароль для Sasha</span>
+            <input id="newAdminPasswordInput" type="password" maxlength="60" autocomplete="new-password" placeholder="Новый пароль администратора" data-placeholder-key="newAdminPasswordPlaceholder">
           </label>
-          <button id="saveAdminPasswordButton" class="primary-action" type="button">Сохранить новый пароль</button>
+          <button id="saveAdminPasswordButton" class="primary-action" type="button" data-edit-key="saveAdminPasswordButton">Сохранить новый пароль</button>
           <div class="admin-image-tools">
-            <strong>Фото участника</strong>
+            <strong data-edit-key="participantPhotoPanelTitle">Фото участника</strong>
             <label class="announcement-label">
-              <span>Участник</span>
+              <span data-edit-key="participantPhotoSelectLabel">Участник</span>
               <select id="participantPhotoSelect"></select>
             </label>
             <label class="announcement-label">
-              <span>Фото</span>
-              <input id="participantPhotoUrlInput" type="url" placeholder="Ссылка на фото участника">
+              <span data-edit-key="participantPhotoUrlLabel">Фото</span>
+              <input id="participantPhotoUrlInput" type="url" placeholder="Ссылка на фото участника" data-placeholder-key="participantPhotoUrlPlaceholder">
               <input id="participantPhotoFileInput" type="file" accept="image/*">
             </label>
-            <button id="saveParticipantPhotoButton" class="primary-action" type="button">Сохранить фото участника</button>
-            <button id="clearParticipantPhotoButton" class="ghost-action" type="button">Убрать фото участника</button>
+            <button id="saveParticipantPhotoButton" class="primary-action" type="button" data-edit-key="saveParticipantPhotoButton">Сохранить фото участника</button>
+            <button id="clearParticipantPhotoButton" class="ghost-action" type="button" data-edit-key="clearParticipantPhotoButton">Убрать фото участника</button>
           </div>
-          <button id="adminLogoutButton" class="danger-action" type="button" hidden>Выйти</button>
+          <button id="adminLogoutButton" class="danger-action" type="button" hidden data-edit-key="adminLogoutButton">Выйти</button>
         </div>
         <p id="adminMessage" class="auth-message"></p>
-        <p class="modal-note">Вход администратора доступен только через адрес /admin. Логин: Sasha. После входа пароль можно заменить здесь.</p>
+        <p class="modal-note" data-edit-key="adminNote">Вход администратора доступен только через адрес /admin. Логин: Sasha. После входа пароль можно заменить здесь.</p>
       </section>
     </div>
 
     <div id="adminNewsModal" class="modal-layer" hidden>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="adminNewsTitle">
         <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
-        <p class="eyebrow">Администратор</p>
-        <h2 id="adminNewsTitle">Опубликовать новость</h2>
+        <p class="eyebrow" data-edit-key="adminNewsEyebrow">Администратор</p>
+        <h2 id="adminNewsTitle" data-edit-key="adminNewsTitle">Опубликовать новость</h2>
         <div id="adminAnnouncementPanel" class="admin-announcement" hidden>
           <label class="announcement-label">
-            <span>Новость для участников</span>
-            <textarea id="announcementInput" maxlength="420" rows="4" placeholder="Напишите важную новость для группы"></textarea>
+            <span data-edit-key="announcementInputLabel">Новость для участников</span>
+            <textarea id="announcementInput" maxlength="420" rows="4" placeholder="Напишите важную новость для группы" data-placeholder-key="announcementPlaceholder"></textarea>
           </label>
-          <button id="publishAnnouncementButton" class="primary-action" type="button">Опубликовать новость</button>
-          <button id="deleteAnnouncementButton" class="danger-action" type="button" hidden>Удалить новость</button>
+          <button id="publishAnnouncementButton" class="primary-action" type="button" data-edit-key="publishAnnouncementButton">Опубликовать новость</button>
+          <button id="deleteAnnouncementButton" class="danger-action" type="button" hidden data-edit-key="deleteAnnouncementButton">Удалить новость</button>
           <p id="announcementMessage" class="auth-message"></p>
           <div class="announcement-read-box">
             <strong>Кто прочитал</strong>
@@ -155,24 +160,24 @@
     <div id="registrationPasswordModal" class="modal-layer" hidden>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="registrationPasswordTitle">
         <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
-        <p class="eyebrow">Администратор</p>
-        <h2 id="registrationPasswordTitle">Пароль для регистрации</h2>
+        <p class="eyebrow" data-edit-key="registrationPasswordEyebrow">Администратор</p>
+        <h2 id="registrationPasswordTitle" data-edit-key="registrationPasswordTitle">Пароль для регистрации</h2>
         <div class="modal-form">
-          <input id="registrationPasswordInput" type="password" maxlength="60" placeholder="Пароль для регистрации">
-          <button id="saveRegistrationPasswordButton" class="primary-action" type="button">Сохранить пароль</button>
-          <button id="clearRegistrationPasswordButton" class="ghost-action" type="button" hidden>Сбросить пароль</button>
+          <input id="registrationPasswordInput" type="password" maxlength="60" placeholder="Пароль для регистрации" data-placeholder-key="registrationPasswordPlaceholder">
+          <button id="saveRegistrationPasswordButton" class="primary-action" type="button" data-edit-key="saveRegistrationPasswordButton">Сохранить пароль</button>
+          <button id="clearRegistrationPasswordButton" class="ghost-action" type="button" hidden data-edit-key="clearRegistrationPasswordButton">Сбросить пароль</button>
         </div>
         <p id="registrationPasswordStatus" class="registration-status"></p>
         <p id="registrationPasswordMessage" class="auth-message"></p>
-        <p class="modal-note">Без этого пароля новые участники не смогут зарегистрироваться.</p>
+        <p class="modal-note" data-edit-key="registrationPasswordNote">Без этого пароля новые участники не смогут зарегистрироваться.</p>
       </section>
     </div>
 
     <div id="announcementModal" class="modal-layer" hidden>
       <section class="modal-card announcement-card" role="dialog" aria-modal="true" aria-labelledby="announcementTitle">
         <button id="closeAnnouncementButton" class="modal-close" type="button" aria-label="Закрыть">×</button>
-        <p class="eyebrow">Новость группы</p>
-        <h2 id="announcementTitle">Важно прочитать</h2>
+        <p class="eyebrow" data-edit-key="announcementEyebrow">Новость группы</p>
+        <h2 id="announcementTitle" data-edit-key="announcementTitle">Важно прочитать</h2>
         <p id="announcementText" class="announcement-text"></p>
       </section>
     </div>
@@ -180,8 +185,9 @@
     <template id="chartTemplate">
       <button class="chart-row" type="button">
         <span class="chart-person">
+          <img class="dashboard-avatar chart-avatar" hidden alt="">
           <span class="chart-name"></span>
-          <span class="champion-badge" hidden>Чемпион дня</span>
+          <span class="champion-badge" hidden data-edit-key="championBadge">Чемпион дня</span>
         </span>
         <span class="chart-track"><span class="chart-bar"></span></span>
         <strong class="chart-percent"></strong>
@@ -190,7 +196,12 @@
 
     <template id="tableRowTemplate">
       <tr>
-        <td><button class="table-name" type="button"></button></td>
+        <td>
+          <button class="table-name" type="button">
+            <img class="dashboard-avatar table-avatar" hidden alt="">
+            <span class="table-name-text"></span>
+          </button>
+        </td>
         <td class="table-goal"></td>
         <td class="table-deadline"><span class="deadline-pill"></span></td>
         <td class="table-count"></td>
@@ -200,7 +211,7 @@
             <strong class="table-progress-percent"></strong>
           </div>
         </td>
-        <td class="table-admin"><button class="admin-delete" type="button">Удалить</button></td>
+        <td class="table-admin"><button class="admin-delete" type="button" data-edit-key="adminDeleteButton">Удалить</button></td>
       </tr>
     </template>
 
@@ -212,20 +223,20 @@
             <span class="person-label"></span>
             <h2></h2>
           </div>
-          <button class="delete-account" type="button">Удалить участника</button>
+          <button class="delete-account" type="button" data-edit-key="deleteAccountButton">Удалить участника</button>
         </header>
 
         <div class="goal-card">
           <div class="goal-card-header">
-            <span class="goal-card-badge">🏆 Основная цель</span>
+            <span class="goal-card-badge" data-edit-key="goalCardBadge">🏆 Основная цель</span>
           </div>
           <div class="goal-fields">
             <label class="goal-label">
-              <span>Цель</span>
-              <input class="person-goal" type="text" maxlength="90" placeholder="Напишите цель">
+              <span data-edit-key="goalInputLabel">Цель</span>
+              <input class="person-goal" type="text" maxlength="90" placeholder="Напишите цель" data-placeholder-key="goalInputPlaceholder">
             </label>
             <label class="goal-label">
-              <span>Выполнить до</span>
+              <span data-edit-key="deadlineInputLabel">Выполнить до</span>
               <input class="person-deadline" type="date">
             </label>
           </div>
@@ -242,7 +253,7 @@
         </div>
 
         <form class="task-form">
-          <input class="task-input" type="text" maxlength="120" placeholder="Добавить шаг">
+          <input class="task-input" type="text" maxlength="120" placeholder="Добавить шаг" data-placeholder-key="taskInputPlaceholder">
           <button type="submit">+</button>
         </form>
 
@@ -250,15 +261,15 @@
 
         <section class="goal-archive" aria-label="Архив целей">
           <div class="archive-header">
-            <span class="archive-badge">Архив целей</span>
+            <span class="archive-badge" data-edit-key="archiveBadge">Архив целей</span>
           </div>
           <div class="archive-list"></div>
         </section>
 
         <section class="next-goal-panel" hidden>
-          <strong>План завершён</strong>
-          <p>Можно сделать другой план и поставить новую цель.</p>
-          <button class="new-goal-button primary-action" type="button">Новая цель</button>
+          <strong data-edit-key="nextGoalTitle">План завершён</strong>
+          <p data-edit-key="nextGoalText">Можно сделать другой план и поставить новую цель.</p>
+          <button class="new-goal-button primary-action" type="button" data-edit-key="newGoalButton">Новая цель</button>
         </section>
       </article>
     </template>
@@ -274,18 +285,18 @@
             <div class="task-title-row">
               <p class="card-title"></p>
               <span class="subtask-count" hidden></span>
-              <span class="task-complete-badge" hidden>Молодец!</span>
+              <span class="task-complete-badge" hidden data-edit-key="taskCompleteBadge">Молодец!</span>
             </div>
             <button class="subtask-toggle" type="button" hidden></button>
           </div>
           <div class="subtask-controls">
-            <button class="add-subtask" type="button">Добавить доп. шаг</button>
-            <button class="edit-task" type="button" aria-label="Редактировать шаг">Редактировать</button>
+            <button class="add-subtask" type="button" data-edit-key="addSubtaskButton">Добавить доп. шаг</button>
+            <button class="edit-task" type="button" aria-label="Редактировать шаг" data-edit-key="editTaskButton">Редактировать</button>
           </div>
         </div>
         <div class="subtask-panel" hidden>
           <form class="subtask-form">
-            <input class="subtask-input" type="text" maxlength="120" placeholder="Описание доп. шага">
+            <input class="subtask-input" type="text" maxlength="120" placeholder="Описание доп. шага" data-placeholder-key="subtaskInputPlaceholder">
             <button type="submit">+</button>
           </form>
           <div class="subtask-list"></div>
@@ -303,7 +314,7 @@
           <p class="card-title"></p>
         </div>
         <div class="subtask-actions">
-          <button class="edit-subtask" type="button" aria-label="Редактировать доп. шаг">Редактировать</button>
+          <button class="edit-subtask" type="button" aria-label="Редактировать доп. шаг" data-edit-key="editSubtaskButton">Редактировать</button>
         </div>
       </article>
     </template>
@@ -311,14 +322,14 @@
     <div id="tourModal" class="modal-layer tour-overlay" hidden>
       <section id="tourCard" class="modal-card tour-card placement-bottom" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
         <button class="modal-close" type="button" data-close-modal aria-label="Закрыть">×</button>
-        <p class="eyebrow">Знакомство</p>
+        <p class="eyebrow" data-edit-key="tourEyebrow">Знакомство</p>
         <h2 id="tourTitle"></h2>
         <p id="tourDescription" class="tour-description"></p>
         <div class="tour-progress">
           <span id="tourStepCounter" class="tour-step-counter"></span>
         </div>
         <div class="modal-form tour-actions">
-          <button id="tourSkipButton" class="ghost-action" type="button">Пропустить</button>
+          <button id="tourSkipButton" class="ghost-action" type="button" data-edit-key="tourSkipButton">Пропустить</button>
           <button id="tourNextButton" class="primary-action" type="button">Далее</button>
         </div>
       </section>

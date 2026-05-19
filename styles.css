@@ -92,6 +92,18 @@ body.is-admin .hero-cover:hover {
   filter: brightness(0.95);
 }
 
+body.is-text-edit-mode [data-edit-key],
+body.is-text-edit-mode [data-placeholder-key] {
+  cursor: text;
+  outline: 2px dashed rgba(81, 129, 184, 0.45);
+  outline-offset: 3px;
+}
+
+body.is-text-edit-mode [data-edit-key]:hover,
+body.is-text-edit-mode [data-placeholder-key]:hover {
+  background-color: rgba(81, 129, 184, 0.1);
+}
+
 .brand h1 {
   margin: 0;
   font-size: clamp(24px, 3vw, 34px);
@@ -152,6 +164,17 @@ body.is-admin .hero-cover:hover {
   display: flex;
   justify-content: center;
   margin-top: 4px;
+}
+
+.photo-upload-label {
+  display: grid;
+  gap: 7px;
+}
+
+.photo-upload-label span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .primary-action,
@@ -274,6 +297,15 @@ body.is-admin .hero-cover:hover {
   flex-wrap: wrap;
 }
 
+.dashboard-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(51, 65, 85, 0.12);
+}
+
 .chart-name {
   overflow-wrap: anywhere;
   font-weight: 850;
@@ -354,12 +386,19 @@ tbody tr.is-viewed {
 }
 
 .table-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border: 0;
   padding: 0;
   background: transparent;
   color: var(--vk-blue-dark);
   font-weight: 950;
   text-align: left;
+}
+
+.table-name-text {
+  overflow-wrap: anywhere;
 }
 
 .table-goal {
