@@ -1659,6 +1659,7 @@ function editTask(participantId, taskId) {
 }
 
 function beginCardDrag(event, participantId, taskId) {
+  if (event.pointerType && event.pointerType !== "mouse") return;
   if (event.button !== 0) return;
   if (event.target.closest("button, input, label, textarea")) return;
   const participant = findParticipant(participantId);
@@ -1754,6 +1755,7 @@ function moveDraggedTask(participantId, draggedTaskId, targetTaskId) {
 }
 
 function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
+  if (event.pointerType && event.pointerType !== "mouse") return;
   if (event.button !== 0) return;
   if (event.target.closest("button, input, label, textarea")) return;
   const participant = findParticipant(participantId);

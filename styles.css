@@ -1443,4 +1443,35 @@ textarea:focus {
   .hero-card {
     border-radius: 14px;
   }
+
+  .task-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .task-main {
+    grid-column: 2;
+  }
+
+  .task-title-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .card-title {
+    flex: 1 1 100%;
+  }
+
+  .subtask-controls {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .add-subtask,
+  .edit-task {
+    width: 100%;
+  }
 }
