@@ -68,17 +68,14 @@ button {
   min-width: 0;
 }
 
-.brand-mark {
-  display: grid;
+.brand-logo {
+  display: block;
   width: 44px;
   height: 44px;
   flex: 0 0 auto;
-  place-items: center;
   border-radius: 12px;
-  background: var(--vk-blue);
-  color: #fff;
-  font-size: 25px;
-  font-weight: 950;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(51, 65, 85, 0.08);
 }
 
 .brand h1 {
@@ -189,7 +186,8 @@ button {
 .hero-cover {
   display: block;
   width: 100%;
-  height: auto;
+  max-height: 520px;
+  object-fit: cover;
 }
 
 .results-panel {
@@ -748,6 +746,35 @@ textarea:focus {
   font-weight: 850;
 }
 
+.next-goal-panel {
+  display: grid;
+  gap: 8px;
+  margin: 16px 20px;
+  border: 1px solid rgba(63, 159, 111, 0.22);
+  border-radius: 12px;
+  padding: 14px;
+  background: #e8f7ef;
+}
+
+.next-goal-panel[hidden] {
+  display: none;
+}
+
+.next-goal-panel strong {
+  color: #247a55;
+  font-size: 16px;
+}
+
+.next-goal-panel p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.new-goal-button {
+  justify-self: start;
+}
+
 .task-card {
   display: grid;
   gap: 8px;
@@ -1173,6 +1200,31 @@ textarea:focus {
 
 .admin-settings-panel[hidden] {
   display: none;
+}
+
+.admin-image-tools {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--soft);
+}
+
+.admin-image-tools > strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.admin-image-tools select {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 13px 14px;
+  outline: none;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
 }
 
 .announcement-label {

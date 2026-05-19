@@ -7,6 +7,8 @@ const SHARED_STATE_URL =
     : "/api/state";
 const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
+const DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
+const DEFAULT_COVER_URL = "assets/boddy-logo.jpg";
 
 const defaultParticipant = {
   id: crypto.randomUUID(),
@@ -52,6 +54,17 @@ const adminUsernameInput = document.querySelector("#adminUsernameInput");
 const adminPasswordInput = document.querySelector("#adminPasswordInput");
 const newAdminPasswordInput = document.querySelector("#newAdminPasswordInput");
 const saveAdminPasswordButton = document.querySelector("#saveAdminPasswordButton");
+const logoUrlInput = document.querySelector("#logoUrlInput");
+const logoFileInput = document.querySelector("#logoFileInput");
+const coverUrlInput = document.querySelector("#coverUrlInput");
+const coverFileInput = document.querySelector("#coverFileInput");
+const saveSiteImagesButton = document.querySelector("#saveSiteImagesButton");
+const resetSiteImagesButton = document.querySelector("#resetSiteImagesButton");
+const participantPhotoSelect = document.querySelector("#participantPhotoSelect");
+const participantPhotoUrlInput = document.querySelector("#participantPhotoUrlInput");
+const participantPhotoFileInput = document.querySelector("#participantPhotoFileInput");
+const saveParticipantPhotoButton = document.querySelector("#saveParticipantPhotoButton");
+const clearParticipantPhotoButton = document.querySelector("#clearParticipantPhotoButton");
 const saveRegistrationPasswordButton = document.querySelector("#saveRegistrationPasswordButton");
 const clearRegistrationPasswordButton = document.querySelector("#clearRegistrationPasswordButton");
 const registrationPasswordInput = document.querySelector("#registrationPasswordInput");
@@ -70,6 +83,8 @@ const announcementModal = document.querySelector("#announcementModal");
 const closeAnnouncementButton = document.querySelector("#closeAnnouncementButton");
 const announcementText = document.querySelector("#announcementText");
 const activeBadge = document.querySelector("#activeBadge");
+const brandLogo = document.querySelector("#brandLogo");
+const heroCover = document.querySelector("#heroCover");
 const authMessage = document.querySelector("#authMessage");
 const adminMessage = document.querySelector("#adminMessage");
 const peopleCount = document.querySelector("#peopleCount");
@@ -127,6 +142,11 @@ joinButton.addEventListener("click", joinAsParticipant);
 participantLogoutButton.addEventListener("click", logoutParticipant);
 adminLoginButton.addEventListener("click", loginAsAdmin);
 saveAdminPasswordButton?.addEventListener("click", saveAdminPassword);
+saveSiteImagesButton?.addEventListener("click", saveSiteImages);
+resetSiteImagesButton?.addEventListener("click", resetSiteImages);
+saveParticipantPhotoButton?.addEventListener("click", saveParticipantPhoto);
+clearParticipantPhotoButton?.addEventListener("click", clearParticipantPhoto);
+participantPhotoSelect?.addEventListener("change", syncParticipantPhotoInput);
 openAnnouncementButton.addEventListener("click", openAdminNewsModal);
 openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
 saveRegistrationPasswordButton?.addEventListener("click", saveRegistrationPassword);
@@ -169,6 +189,13 @@ function createTask(title, done = false, subtasks = []) {
     createdAt: Date.now(),
     subtasks,
     subtasksHidden: true,
+  };
+}
+
+function createDefaultSiteImages() {
+  return {
+    logo: DEFAULT_LOGO_URL,
+    cover: DEFAULT_COVER_URL,
   };
 }
 
@@ -317,6 +344,7 @@ function normalizeState(candidate) {
     adminPasswordHash: candidate.adminPasswordHashV2 || "",
     adminPasswordChanged: Boolean(candidate.adminPasswordChanged),
     registrationPasswordHash: candidate.registrationPasswordHash || "",
+    siteImages: normalizeSiteImages(candidate.siteImages),
     announcement: normalizeAnnouncement(candidate.announcement),
     deletedParticipantIds: Array.isArray(candidate.deletedParticipantIds)
       ? candidate.deletedParticipantIds
@@ -336,6 +364,18 @@ function normalizeAnnouncement(announcement) {
     text: String(announcement.text || "").trim(),
     createdAt: announcement.createdAt || Date.now(),
     readBy: Array.isArray(announcement.readBy) ? announcement.readBy : [],
+  };
+}
+
+function normalizeSiteImages(siteImages) {
+  const defaults = createDefaultSiteImages();
+  if (!siteImages || typeof siteImages !== "object") {
+    return defaults;
+  }
+
+  return {
+    logo: String(siteImages.logo || "").trim() || defaults.logo,
+    cover: String(siteImages.cover || "").trim() || defaults.cover,
   };
 }
 
@@ -381,6 +421,7 @@ function migrateLegacyState() {
       viewedParticipantId: participant.id,
       adminPasswordHash: "",
       adminPasswordChanged: false,
+      siteImages: createDefaultSiteImages(),
       announcement: null,
       deletedParticipantIds: [],
       isAdmin: false,
@@ -398,6 +439,7 @@ function createInitialState() {
     adminPasswordHash: "",
     adminPasswordChanged: false,
     registrationPasswordHash: "",
+    siteImages: createDefaultSiteImages(),
     announcement: null,
     deletedParticipantIds: [],
     isAdmin: false,
@@ -855,6 +897,7 @@ function toSharedState(source, options = {}) {
     adminPasswordHashV2: source.adminPasswordHash,
     adminPasswordChanged: Boolean(source.adminPasswordChanged),
     registrationPasswordHash: source.registrationPasswordHash || "",
+    siteImages: normalizeSiteImages(source.siteImages),
     announcement: source.announcement,
     deletedParticipantIds: source.deletedParticipantIds || [],
     allowEmptyParticipants: Boolean(options.allowEmptyParticipants),
@@ -1092,6 +1135,126 @@ function renderAdminPanel() {
   adminSettingsPanel.hidden = !state.isAdmin;
   adminLoginButton.hidden = state.isAdmin;
   adminLogoutButton.hidden = !state.isAdmin;
+  if (state.isAdmin) {
+    syncImageSettingsForm();
+  }
+}
+
+function renderSiteImages() {
+  const siteImages = normalizeSiteImages(state.siteImages);
+  if (brandLogo) {
+    brandLogo.src = siteImages.logo;
+  }
+  if (heroCover) {
+    heroCover.src = siteImages.cover;
+  }
+}
+
+function syncImageSettingsForm() {
+  const siteImages = normalizeSiteImages(state.siteImages);
+  if (logoUrlInput) logoUrlInput.value = siteImages.logo;
+  if (coverUrlInput) coverUrlInput.value = siteImages.cover;
+  renderParticipantPhotoOptions();
+}
+
+function renderParticipantPhotoOptions() {
+  if (!participantPhotoSelect) return;
+
+  const selectedId = participantPhotoSelect.value || state.viewedParticipantId || state.participants[0]?.id || "";
+  participantPhotoSelect.replaceChildren();
+  state.participants.forEach((participant) => {
+    const option = document.createElement("option");
+    option.value = participant.id;
+    option.textContent = participant.name;
+    participantPhotoSelect.append(option);
+  });
+  participantPhotoSelect.value = state.participants.some((participant) => participant.id === selectedId)
+    ? selectedId
+    : state.participants[0]?.id || "";
+  syncParticipantPhotoInput();
+}
+
+function syncParticipantPhotoInput() {
+  if (!participantPhotoUrlInput || !participantPhotoSelect) return;
+  const participant = findParticipant(participantPhotoSelect.value);
+  participantPhotoUrlInput.value = participant?.picture || "";
+}
+
+async function saveSiteImages() {
+  if (!state.isAdmin) return;
+
+  const logo = await getImageValue(logoUrlInput, logoFileInput, state.siteImages?.logo || DEFAULT_LOGO_URL);
+  const cover = await getImageValue(coverUrlInput, coverFileInput, state.siteImages?.cover || DEFAULT_COVER_URL);
+  state.siteImages = normalizeSiteImages({ logo, cover });
+  clearFileInput(logoFileInput);
+  clearFileInput(coverFileInput);
+  saveState();
+  showAdminMessage("Картинки сайта сохранены.", false);
+  render();
+  openAdminPanel();
+}
+
+function resetSiteImages() {
+  if (!state.isAdmin) return;
+
+  state.siteImages = createDefaultSiteImages();
+  clearFileInput(logoFileInput);
+  clearFileInput(coverFileInput);
+  saveState();
+  showAdminMessage("Картинки сайта возвращены по умолчанию.", false);
+  render();
+  openAdminPanel();
+}
+
+async function saveParticipantPhoto() {
+  if (!state.isAdmin || !participantPhotoSelect) return;
+
+  const participant = findParticipant(participantPhotoSelect.value);
+  if (!participant) {
+    showAdminMessage("Выберите участника для смены фото.", true);
+    return;
+  }
+
+  participant.picture = await getImageValue(participantPhotoUrlInput, participantPhotoFileInput, participant.picture || "");
+  clearFileInput(participantPhotoFileInput);
+  saveState();
+  showAdminMessage("Фото участника сохранено.", false);
+  render();
+  openAdminPanel();
+}
+
+function clearParticipantPhoto() {
+  if (!state.isAdmin || !participantPhotoSelect) return;
+
+  const participant = findParticipant(participantPhotoSelect.value);
+  if (!participant) return;
+  participant.picture = "";
+  clearFileInput(participantPhotoFileInput);
+  saveState();
+  showAdminMessage("Фото участника удалено.", false);
+  render();
+  openAdminPanel();
+}
+
+async function getImageValue(urlInput, fileInput, fallback) {
+  if (fileInput?.files?.[0]) {
+    return readImageFile(fileInput.files[0]);
+  }
+
+  return urlInput?.value.trim() || fallback;
+}
+
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", reject);
+    reader.readAsDataURL(file);
+  });
+}
+
+function clearFileInput(input) {
+  if (input) input.value = "";
 }
 
 function showAnnouncementMessage(message, isError) {
@@ -1579,6 +1742,7 @@ function getSortedParticipants() {
 }
 
 function render() {
+  renderSiteImages();
   renderAdminControls();
   renderActiveBadge();
   renderResults();
@@ -1832,6 +1996,8 @@ function renderProfile() {
   const taskInput = node.querySelector(".task-input");
   const taskList = node.querySelector(".task-list");
   const archiveList = node.querySelector(".archive-list");
+  const nextGoalPanel = node.querySelector(".next-goal-panel");
+  const newGoalButton = node.querySelector(".new-goal-button");
   const profileAvatar = node.querySelector(".profile-avatar");
   const deleteAccountButton = node.querySelector(".delete-account");
 
@@ -1877,6 +2043,18 @@ function renderProfile() {
   }
 
   renderGoalArchive(archiveList, participant);
+  const canStartNextGoal =
+    editable &&
+    !hasActiveGoal(participant) &&
+    Array.isArray(participant.archivedGoals) &&
+    participant.archivedGoals.length > 0;
+  if (nextGoalPanel) {
+    nextGoalPanel.hidden = !canStartNextGoal;
+  }
+  newGoalButton?.addEventListener("click", () => {
+    goalInput.focus();
+    goalInput.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
 
   profileView.append(node);
 }

@@ -8,6 +8,7 @@ function normalizeSharedState(value) {
     adminPasswordHashV2: source.adminPasswordHashV2 || source.adminPasswordHash || "",
     adminPasswordChanged: Boolean(source.adminPasswordChanged),
     registrationPasswordHash: source.registrationPasswordHash || "",
+    siteImages: normalizeSiteImages(source.siteImages),
     announcement: source.announcement || null,
     deletedParticipantIds: Array.isArray(source.deletedParticipantIds)
       ? source.deletedParticipantIds
@@ -48,7 +49,7 @@ module.exports = async function handler(request, response) {
     });
     const currentData = currentResponse.ok
       ? normalizeSharedState(await currentResponse.json())
-      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", announcement: null, deletedParticipantIds: [] };
+      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), announcement: null, deletedParticipantIds: [] };
     const deletedIds = new Set([
       ...currentData.deletedParticipantIds,
       ...data.deletedParticipantIds,
@@ -91,3 +92,10 @@ module.exports = async function handler(request, response) {
   response.setHeader("Allow", "GET, PUT, POST, OPTIONS");
   response.status(405).json({ error: "Метод не поддерживается." });
 };
+
+function normalizeSiteImages(siteImages = {}) {
+  return {
+    logo: typeof siteImages.logo === "string" ? siteImages.logo : "",
+    cover: typeof siteImages.cover === "string" ? siteImages.cover : "",
+  };
+}

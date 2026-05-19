@@ -10,7 +10,7 @@
     <main class="app-shell">
       <header class="topbar">
         <div class="brand">
-          <span class="brand-mark">B</span>
+          <img id="brandLogo" class="brand-logo" src="assets/boddy-logo.jpg" alt="Boddy Board">
           <div>
             <p class="eyebrow">Твой Бадди</p>
             <h1>Boddy Board</h1>
@@ -29,7 +29,7 @@
       </header>
 
       <section class="hero-card" aria-label="Обложка группы">
-        <img class="hero-cover" src="assets/boddy-cover.png" alt="Вместе легче. Поддержка, дисциплина, результат. Два человека помогают друг другу подняться в гору.">
+        <img id="heroCover" class="hero-cover" src="assets/boddy-logo.jpg" alt="Вместе легче. Поддержка, дисциплина, результат. Два человека помогают друг другу подняться в гору.">
       </section>
 
       <section class="results-panel" aria-label="Таблица и график результатов">
@@ -108,6 +108,35 @@
             <input id="newAdminPasswordInput" type="password" maxlength="60" autocomplete="new-password" placeholder="Новый пароль администратора">
           </label>
           <button id="saveAdminPasswordButton" class="primary-action" type="button">Сохранить новый пароль</button>
+          <div class="admin-image-tools">
+            <strong>Картинки сайта</strong>
+            <label class="announcement-label">
+              <span>Логотип</span>
+              <input id="logoUrlInput" type="url" placeholder="Ссылка на логотип">
+              <input id="logoFileInput" type="file" accept="image/*">
+            </label>
+            <label class="announcement-label">
+              <span>Обложка</span>
+              <input id="coverUrlInput" type="url" placeholder="Ссылка на обложку">
+              <input id="coverFileInput" type="file" accept="image/*">
+            </label>
+            <button id="saveSiteImagesButton" class="primary-action" type="button">Сохранить картинки сайта</button>
+            <button id="resetSiteImagesButton" class="ghost-action" type="button">Вернуть картинки по умолчанию</button>
+          </div>
+          <div class="admin-image-tools">
+            <strong>Фото участника</strong>
+            <label class="announcement-label">
+              <span>Участник</span>
+              <select id="participantPhotoSelect"></select>
+            </label>
+            <label class="announcement-label">
+              <span>Фото</span>
+              <input id="participantPhotoUrlInput" type="url" placeholder="Ссылка на фото участника">
+              <input id="participantPhotoFileInput" type="file" accept="image/*">
+            </label>
+            <button id="saveParticipantPhotoButton" class="primary-action" type="button">Сохранить фото участника</button>
+            <button id="clearParticipantPhotoButton" class="ghost-action" type="button">Убрать фото участника</button>
+          </div>
           <button id="adminLogoutButton" class="danger-action" type="button" hidden>Выйти</button>
         </div>
         <p id="adminMessage" class="auth-message"></p>
@@ -237,6 +266,12 @@
             <span class="archive-badge">Архив целей</span>
           </div>
           <div class="archive-list"></div>
+        </section>
+
+        <section class="next-goal-panel" hidden>
+          <strong>План завершён</strong>
+          <p>Можно сделать другой план и поставить новую цель.</p>
+          <button class="new-goal-button primary-action" type="button">Новая цель</button>
         </section>
       </article>
     </template>
