@@ -1,4 +1,4 @@
-const STORE_URL = "https://jsonblob.com/api/jsonBlob/019de51c-4b92-7fa8-9163-85a0114aa79b";
+const STORE_URL = "https://jsonblob.com/api/jsonBlob/019e3f17-632d-7aa4-9568-7e06c3aaf372";
 
 function normalizeSharedState(value) {
   const source = value && typeof value === "object" ? value : {};
@@ -23,6 +23,7 @@ module.exports = async function handler(request, response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  response.setHeader("Cache-Control", "no-store, max-age=0");
 
   if (request.method === "OPTIONS") {
     response.status(204).end();
@@ -61,18 +62,10 @@ module.exports = async function handler(request, response) {
     data.uiText = { ...currentData.uiText, ...data.uiText };
     data.uiPlaceholders = { ...currentData.uiPlaceholders, ...data.uiPlaceholders };
     data.deletedParticipantIds = [...deletedIds];
-    data.participants = data.participants.filter(
-      (participant) =>
-        !deletedIds.has(participant.id) &&
-        !deletedIds.has(String(participant.name || "").toLowerCase()),
-    );
+    data.participants = mergeParticipants(currentData.participants, data.participants, deletedIds);
 
     if (!data.allowEmptyParticipants && data.participants.length === 0 && currentData.participants.length > 0) {
-      data.participants = currentData.participants.filter(
-        (participant) =>
-          !deletedIds.has(participant.id) &&
-          !deletedIds.has(String(participant.name || "").toLowerCase()),
-      );
+      data.participants = mergeParticipants(currentData.participants, [], deletedIds);
     }
 
     const storeResponse = await fetch(STORE_URL, {
@@ -102,6 +95,28 @@ function normalizeSiteImages(siteImages = {}) {
     logo: typeof siteImages.logo === "string" ? siteImages.logo : "",
     cover: typeof siteImages.cover === "string" ? siteImages.cover : "",
   };
+}
+
+function mergeParticipants(currentParticipants = [], incomingParticipants = [], deletedIds = new Set()) {
+  const participantsById = new Map();
+
+  currentParticipants.forEach((participant) => {
+    if (participant?.id) {
+      participantsById.set(participant.id, participant);
+    }
+  });
+
+  incomingParticipants.forEach((participant) => {
+    if (participant?.id) {
+      participantsById.set(participant.id, participant);
+    }
+  });
+
+  return [...participantsById.values()].filter(
+    (participant) =>
+      !deletedIds.has(participant.id) &&
+      !deletedIds.has(String(participant.name || "").toLowerCase()),
+  );
 }
 
 function normalizeEditableMap(value = {}) {

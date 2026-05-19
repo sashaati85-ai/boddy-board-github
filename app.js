@@ -1,10 +1,7 @@
 const STORAGE_KEY = "boddy-board-v2";
 const SESSION_KEY = "boddy-board-session-v1";
 const LEGACY_KEYS = ["boddy-board-v1", "goal-board-v1"];
-const SHARED_STATE_URL =
-  window.location.protocol === "file:"
-    ? "https://trello-three-green.vercel.app/api/state"
-    : "/api/state";
+const SHARED_STATE_URL = "https://trello-three-green.vercel.app/api/state";
 const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 const DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
@@ -161,6 +158,12 @@ deleteAnnouncementButton.addEventListener("click", deleteAnnouncement);
 closeAnnouncementButton.addEventListener("click", markAnnouncementRead);
 window.addEventListener("resize", scheduleTourPositionUpdate);
 window.addEventListener("scroll", scheduleTourPositionUpdate, { passive: true });
+window.addEventListener("focus", refreshSharedState);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    refreshSharedState();
+  }
+});
 setInterval(refreshSharedState, 5000);
 [nameInput, passwordInput].forEach((input) => {
   input.addEventListener("keydown", (event) => {
@@ -224,6 +227,7 @@ async function refreshSharedState() {
   try {
     const response = await fetch(SHARED_STATE_URL, {
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
 
     if (!response.ok) return;
@@ -269,6 +273,7 @@ async function loadState() {
   try {
     const response = await fetch(SHARED_STATE_URL, {
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
 
     if (!response.ok) throw new Error("Shared state unavailable");
