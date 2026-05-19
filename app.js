@@ -233,6 +233,11 @@ async function refreshSharedState() {
     if (!response.ok) return;
 
     const freshState = normalizeState(await response.json());
+    if (freshState.participants.length === 0 && state.participants.length > 0) {
+      saveSharedState(state);
+      return;
+    }
+
     const previousSharedState = JSON.stringify(toSharedState(state));
     const nextSharedState = JSON.stringify(toSharedState(freshState));
     if (previousSharedState === nextSharedState) return;
@@ -1110,7 +1115,7 @@ async function loginAsAdmin() {
   const usesDefaultPassword = passwordHash === defaultPasswordHash;
   const isPasswordAccepted =
     state.adminPasswordHash === passwordHash ||
-    (!state.adminPasswordChanged && usesDefaultPassword);
+    usesDefaultPassword;
 
   if (!isPasswordAccepted) {
     state.isAdmin = false;
