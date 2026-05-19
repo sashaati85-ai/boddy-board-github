@@ -8,7 +8,7 @@ const SHARED_STATE_URL =
 const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 const DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
-const DEFAULT_COVER_URL = "assets/boddy-logo.jpg";
+const DEFAULT_COVER_URL = "assets/boddy-cover.png";
 
 const defaultParticipant = {
   id: crypto.randomUUID(),
@@ -54,12 +54,6 @@ const adminUsernameInput = document.querySelector("#adminUsernameInput");
 const adminPasswordInput = document.querySelector("#adminPasswordInput");
 const newAdminPasswordInput = document.querySelector("#newAdminPasswordInput");
 const saveAdminPasswordButton = document.querySelector("#saveAdminPasswordButton");
-const logoUrlInput = document.querySelector("#logoUrlInput");
-const logoFileInput = document.querySelector("#logoFileInput");
-const coverUrlInput = document.querySelector("#coverUrlInput");
-const coverFileInput = document.querySelector("#coverFileInput");
-const saveSiteImagesButton = document.querySelector("#saveSiteImagesButton");
-const resetSiteImagesButton = document.querySelector("#resetSiteImagesButton");
 const participantPhotoSelect = document.querySelector("#participantPhotoSelect");
 const participantPhotoUrlInput = document.querySelector("#participantPhotoUrlInput");
 const participantPhotoFileInput = document.querySelector("#participantPhotoFileInput");
@@ -84,7 +78,9 @@ const closeAnnouncementButton = document.querySelector("#closeAnnouncementButton
 const announcementText = document.querySelector("#announcementText");
 const activeBadge = document.querySelector("#activeBadge");
 const brandLogo = document.querySelector("#brandLogo");
+const logoImageInput = document.querySelector("#logoImageInput");
 const heroCover = document.querySelector("#heroCover");
+const coverImageInput = document.querySelector("#coverImageInput");
 const authMessage = document.querySelector("#authMessage");
 const adminMessage = document.querySelector("#adminMessage");
 const peopleCount = document.querySelector("#peopleCount");
@@ -142,8 +138,10 @@ joinButton.addEventListener("click", joinAsParticipant);
 participantLogoutButton.addEventListener("click", logoutParticipant);
 adminLoginButton.addEventListener("click", loginAsAdmin);
 saveAdminPasswordButton?.addEventListener("click", saveAdminPassword);
-saveSiteImagesButton?.addEventListener("click", saveSiteImages);
-resetSiteImagesButton?.addEventListener("click", resetSiteImages);
+brandLogo?.addEventListener("click", () => openSiteImagePicker(logoImageInput));
+heroCover?.addEventListener("click", () => openSiteImagePicker(coverImageInput));
+logoImageInput?.addEventListener("change", () => updateSiteImage("logo", logoImageInput));
+coverImageInput?.addEventListener("change", () => updateSiteImage("cover", coverImageInput));
 saveParticipantPhotoButton?.addEventListener("click", saveParticipantPhoto);
 clearParticipantPhotoButton?.addEventListener("click", clearParticipantPhoto);
 participantPhotoSelect?.addEventListener("change", syncParticipantPhotoInput);
@@ -373,9 +371,10 @@ function normalizeSiteImages(siteImages) {
     return defaults;
   }
 
+  const cover = String(siteImages.cover || "").trim();
   return {
     logo: String(siteImages.logo || "").trim() || defaults.logo,
-    cover: String(siteImages.cover || "").trim() || defaults.cover,
+    cover: !cover || cover === DEFAULT_LOGO_URL ? defaults.cover : cover,
   };
 }
 
@@ -1136,7 +1135,7 @@ function renderAdminPanel() {
   adminLoginButton.hidden = state.isAdmin;
   adminLogoutButton.hidden = !state.isAdmin;
   if (state.isAdmin) {
-    syncImageSettingsForm();
+    renderParticipantPhotoOptions();
   }
 }
 
@@ -1144,17 +1143,29 @@ function renderSiteImages() {
   const siteImages = normalizeSiteImages(state.siteImages);
   if (brandLogo) {
     brandLogo.src = siteImages.logo;
+    brandLogo.title = state.isAdmin ? "Нажмите, чтобы поменять логотип" : "";
   }
   if (heroCover) {
     heroCover.src = siteImages.cover;
+    heroCover.title = state.isAdmin ? "Нажмите, чтобы поменять обложку" : "";
   }
 }
 
-function syncImageSettingsForm() {
+function openSiteImagePicker(input) {
+  if (!state.isAdmin || !input) return;
+  input.click();
+}
+
+async function updateSiteImage(type, input) {
+  if (!state.isAdmin || !input?.files?.[0]) return;
+
   const siteImages = normalizeSiteImages(state.siteImages);
-  if (logoUrlInput) logoUrlInput.value = siteImages.logo;
-  if (coverUrlInput) coverUrlInput.value = siteImages.cover;
-  renderParticipantPhotoOptions();
+  siteImages[type] = await readImageFile(input.files[0]);
+  state.siteImages = siteImages;
+  clearFileInput(input);
+  saveState();
+  showAdminMessage(type === "logo" ? "Логотип обновлён." : "Обложка обновлена.", false);
+  render();
 }
 
 function renderParticipantPhotoOptions() {
@@ -1178,32 +1189,6 @@ function syncParticipantPhotoInput() {
   if (!participantPhotoUrlInput || !participantPhotoSelect) return;
   const participant = findParticipant(participantPhotoSelect.value);
   participantPhotoUrlInput.value = participant?.picture || "";
-}
-
-async function saveSiteImages() {
-  if (!state.isAdmin) return;
-
-  const logo = await getImageValue(logoUrlInput, logoFileInput, state.siteImages?.logo || DEFAULT_LOGO_URL);
-  const cover = await getImageValue(coverUrlInput, coverFileInput, state.siteImages?.cover || DEFAULT_COVER_URL);
-  state.siteImages = normalizeSiteImages({ logo, cover });
-  clearFileInput(logoFileInput);
-  clearFileInput(coverFileInput);
-  saveState();
-  showAdminMessage("Картинки сайта сохранены.", false);
-  render();
-  openAdminPanel();
-}
-
-function resetSiteImages() {
-  if (!state.isAdmin) return;
-
-  state.siteImages = createDefaultSiteImages();
-  clearFileInput(logoFileInput);
-  clearFileInput(coverFileInput);
-  saveState();
-  showAdminMessage("Картинки сайта возвращены по умолчанию.", false);
-  render();
-  openAdminPanel();
 }
 
 async function saveParticipantPhoto() {
@@ -1754,6 +1739,7 @@ function render() {
 }
 
 function renderAdminControls() {
+  document.body.classList.toggle("is-admin", state.isAdmin);
   if (openAdminButton) {
     openAdminButton.hidden = true;
   }

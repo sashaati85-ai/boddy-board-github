@@ -11,6 +11,7 @@
       <header class="topbar">
         <div class="brand">
           <img id="brandLogo" class="brand-logo" src="assets/boddy-logo.jpg" alt="Boddy Board">
+          <input id="logoImageInput" class="image-picker-input" type="file" accept="image/*" aria-label="Поменять логотип">
           <div>
             <p class="eyebrow">Твой Бадди</p>
             <h1>Boddy Board</h1>
@@ -29,7 +30,8 @@
       </header>
 
       <section class="hero-card" aria-label="Обложка группы">
-        <img id="heroCover" class="hero-cover" src="assets/boddy-logo.jpg" alt="Вместе легче. Поддержка, дисциплина, результат. Два человека помогают друг другу подняться в гору.">
+        <img id="heroCover" class="hero-cover" src="assets/boddy-cover.png" alt="Вместе легче. Поддержка, дисциплина, результат. Два человека помогают друг другу подняться в гору.">
+        <input id="coverImageInput" class="image-picker-input" type="file" accept="image/*" aria-label="Поменять обложку">
       </section>
 
       <section class="results-panel" aria-label="Таблица и график результатов">
@@ -108,21 +110,6 @@
             <input id="newAdminPasswordInput" type="password" maxlength="60" autocomplete="new-password" placeholder="Новый пароль администратора">
           </label>
           <button id="saveAdminPasswordButton" class="primary-action" type="button">Сохранить новый пароль</button>
-          <div class="admin-image-tools">
-            <strong>Картинки сайта</strong>
-            <label class="announcement-label">
-              <span>Логотип</span>
-              <input id="logoUrlInput" type="url" placeholder="Ссылка на логотип">
-              <input id="logoFileInput" type="file" accept="image/*">
-            </label>
-            <label class="announcement-label">
-              <span>Обложка</span>
-              <input id="coverUrlInput" type="url" placeholder="Ссылка на обложку">
-              <input id="coverFileInput" type="file" accept="image/*">
-            </label>
-            <button id="saveSiteImagesButton" class="primary-action" type="button">Сохранить картинки сайта</button>
-            <button id="resetSiteImagesButton" class="ghost-action" type="button">Вернуть картинки по умолчанию</button>
-          </div>
           <div class="admin-image-tools">
             <strong>Фото участника</strong>
             <label class="announcement-label">
