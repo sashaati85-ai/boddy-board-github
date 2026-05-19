@@ -860,6 +860,9 @@ textarea:focus {
   padding: 10px;
   background: rgba(81, 129, 184, 0.08);
   font-size: 15px;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .task-head {
@@ -921,6 +924,16 @@ textarea:focus {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
   transform: translateZ(0) scale(1.02);
   transition: transform 180ms ease, box-shadow 180ms ease;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body.is-dragging-card,
+body.is-dragging-card * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .subtask-toggle {
@@ -1054,6 +1067,9 @@ textarea:focus {
   background: #ffffff;
   margin-left: 18px;
   font-size: 14px;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .subtask-card.drag-over {

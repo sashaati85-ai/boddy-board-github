@@ -23,7 +23,7 @@ const defaultParticipant = {
 
 let state = createInitialState();
 let dragState = null;
-let touchDragTap = null;
+let pendingTouchDrag = null;
 let textEditMode = false;
 
 const openLoginButton = document.querySelector("#openLoginButton");
@@ -1659,39 +1659,25 @@ function editTask(participantId, taskId) {
   render();
 }
 
-function canStartDrag(event, dragKey) {
-  if (!event.pointerType || event.pointerType === "mouse") return true;
-
-  const now = Date.now();
-  const previousTap = touchDragTap;
-  const isDoubleTap =
-    previousTap &&
-    previousTap.key === dragKey &&
-    now - previousTap.time < 450 &&
-    Math.abs(event.clientX - previousTap.x) < 28 &&
-    Math.abs(event.clientY - previousTap.y) < 28;
-
-  touchDragTap = isDoubleTap
-    ? null
-    : {
-        key: dragKey,
-        time: now,
-        x: event.clientX,
-        y: event.clientY,
-      };
-
-  return Boolean(isDoubleTap);
-}
-
 function beginCardDrag(event, participantId, taskId) {
   if (event.button !== 0) return;
   if (event.target.closest("button, input, label, textarea")) return;
-  if (!canStartDrag(event, `task:${participantId}:${taskId}`)) return;
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId)) return;
-
-  event.preventDefault();
   const card = event.currentTarget;
+  const clientX = event.clientX;
+  const clientY = event.clientY;
+
+  if (event.pointerType && event.pointerType !== "mouse") {
+    scheduleTouchDrag(event, () => startTaskDrag(card, participantId, taskId, clientX, clientY));
+    return;
+  }
+
+  startTaskDrag(card, participantId, taskId, clientX, clientY);
+  event.preventDefault();
+}
+
+function startTaskDrag(card, participantId, taskId, clientX, clientY) {
   const rect = card.getBoundingClientRect();
   const clone = card.cloneNode(true);
   clone.classList.add("drag-ghost");
@@ -1713,18 +1699,62 @@ function beginCardDrag(event, participantId, taskId) {
     taskId,
     card,
     clone,
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
+    offsetX: clientX - rect.left,
+    offsetY: clientY - rect.top,
     targetTaskId: null,
   };
 
+  document.body.classList.add("is-dragging-card");
   window.addEventListener("pointermove", onCardDragMove);
   window.addEventListener("pointerup", endCardDrag);
   window.addEventListener("pointercancel", endCardDrag);
 }
 
+function scheduleTouchDrag(event, startDrag) {
+  clearPendingTouchDrag();
+
+  const startX = event.clientX;
+  const startY = event.clientY;
+
+  const cancel = () => clearPendingTouchDrag();
+  const move = (moveEvent) => {
+    if (Math.abs(moveEvent.clientX - startX) > 12 || Math.abs(moveEvent.clientY - startY) > 12) {
+      clearPendingTouchDrag();
+    }
+  };
+
+  pendingTouchDrag = {
+    timeout: window.setTimeout(() => {
+      const pending = pendingTouchDrag;
+      if (!pending) return;
+      pendingTouchDrag = null;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", cancel);
+      window.removeEventListener("pointercancel", cancel);
+      startDrag();
+    }, 520),
+    move,
+    cancel,
+  };
+
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", cancel);
+  window.addEventListener("pointercancel", cancel);
+}
+
+function clearPendingTouchDrag() {
+  if (!pendingTouchDrag) return;
+
+  window.clearTimeout(pendingTouchDrag.timeout);
+  window.removeEventListener("pointermove", pendingTouchDrag.move);
+  window.removeEventListener("pointerup", pendingTouchDrag.cancel);
+  window.removeEventListener("pointercancel", pendingTouchDrag.cancel);
+  pendingTouchDrag = null;
+}
+
 function onCardDragMove(event) {
   if (!dragState) return;
+  event.preventDefault();
   dragState.clone.style.left = `${event.clientX - dragState.offsetX}px`;
   dragState.clone.style.top = `${event.clientY - dragState.offsetY}px`;
 
@@ -1756,6 +1786,7 @@ function endCardDrag() {
   window.removeEventListener("pointermove", onCardDragMove);
   window.removeEventListener("pointerup", endCardDrag);
   window.removeEventListener("pointercancel", endCardDrag);
+  document.body.classList.remove("is-dragging-card");
   card.classList.remove("is-dragging");
   clone.remove();
   document.querySelectorAll(".task-card.drag-over").forEach((node) => node.classList.remove("drag-over"));
@@ -1784,16 +1815,26 @@ function moveDraggedTask(participantId, draggedTaskId, targetTaskId) {
 function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
   if (event.button !== 0) return;
   if (event.target.closest("button, input, label, textarea")) return;
-  if (!canStartDrag(event, `subtask:${participantId}:${taskId}:${subtaskId}`)) return;
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId)) return;
 
   const task = participant.tasks.find((item) => item.id === taskId);
   if (!task?.subtasks?.some((subtask) => subtask.id === subtaskId)) return;
 
-  event.preventDefault();
   event.stopPropagation();
   const card = event.currentTarget;
+  const clientX = event.clientX;
+  const clientY = event.clientY;
+  if (event.pointerType && event.pointerType !== "mouse") {
+    scheduleTouchDrag(event, () => startSubtaskDrag(card, participantId, taskId, subtaskId, clientX, clientY));
+    return;
+  }
+
+  startSubtaskDrag(card, participantId, taskId, subtaskId, clientX, clientY);
+  event.preventDefault();
+}
+
+function startSubtaskDrag(card, participantId, taskId, subtaskId, clientX, clientY) {
   const rect = card.getBoundingClientRect();
   const clone = card.cloneNode(true);
   clone.classList.add("drag-ghost");
@@ -1816,11 +1857,12 @@ function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
     subtaskId,
     card,
     clone,
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
+    offsetX: clientX - rect.left,
+    offsetY: clientY - rect.top,
     targetSubtaskId: null,
   };
 
+  document.body.classList.add("is-dragging-card");
   window.addEventListener("pointermove", onCardDragMove);
   window.addEventListener("pointerup", endCardDrag);
   window.addEventListener("pointercancel", endCardDrag);
@@ -1846,6 +1888,7 @@ function endSubtaskDrag() {
   window.removeEventListener("pointermove", onCardDragMove);
   window.removeEventListener("pointerup", endCardDrag);
   window.removeEventListener("pointercancel", endCardDrag);
+  document.body.classList.remove("is-dragging-card");
   card.classList.remove("is-dragging");
   clone.remove();
   document.querySelectorAll(".subtask-card.drag-over").forEach((node) => node.classList.remove("drag-over"));
