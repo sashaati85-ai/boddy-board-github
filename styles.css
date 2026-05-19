@@ -314,6 +314,7 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
 .champion-badge {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   min-height: 24px;
   padding: 4px 9px;
   border-radius: 999px;
@@ -674,6 +675,17 @@ textarea:focus {
 .person-deadline:disabled {
   color: var(--text);
   background: var(--soft);
+}
+
+.person-deadline.is-invalid {
+  border-color: #d93025;
+  box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.16);
+}
+
+.deadline-error {
+  color: #d93025;
+  font-size: 12px;
+  font-weight: 850;
 }
 
 .progress-meta {

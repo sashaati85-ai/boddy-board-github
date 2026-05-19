@@ -2159,12 +2159,12 @@ function getPlaceBadge(place) {
   if (place === 2) {
     return {
       key: "secondPlaceBadge",
-      text: state.uiText?.secondPlaceBadge || "2 место",
+      text: state.uiText?.secondPlaceBadge || "🥈🥈 Второе место",
     };
   }
   return {
     key: "thirdPlaceBadge",
-    text: state.uiText?.thirdPlaceBadge || "3 место",
+    text: state.uiText?.thirdPlaceBadge || "🥉 Третье место",
   };
 }
 
@@ -2242,6 +2242,7 @@ function renderProfile() {
   const node = profileTemplate.content.firstElementChild.cloneNode(true);
   const goalInput = node.querySelector(".person-goal");
   const deadlineInput = node.querySelector(".person-deadline");
+  const deadlineError = node.querySelector(".deadline-error");
   const taskForm = node.querySelector(".task-form");
   const taskInput = node.querySelector(".task-input");
   const taskList = node.querySelector(".task-list");
@@ -2272,11 +2273,25 @@ function renderProfile() {
 
   deadlineInput.value = participant.deadline || "";
   deadlineInput.disabled = !editable;
-  deadlineInput.addEventListener("input", () => updateDeadline(participant.id, deadlineInput.value));
+  deadlineInput.addEventListener("input", () => {
+    deadlineInput.classList.remove("is-invalid");
+    if (deadlineError) {
+      deadlineError.hidden = true;
+    }
+    updateDeadline(participant.id, deadlineInput.value);
+  });
 
   taskForm.hidden = !editable;
   taskForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (participant.goal.trim() && !participant.deadline) {
+      deadlineInput.classList.add("is-invalid");
+      if (deadlineError) {
+        deadlineError.hidden = false;
+      }
+      deadlineInput.focus();
+      return;
+    }
     addTask(participant.id, taskInput.value);
     taskInput.value = "";
   });
