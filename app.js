@@ -1611,6 +1611,9 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
 
   subtask.done = done;
   reorderSubtasks(task);
+  if (task.subtasks.length > 0 && task.subtasks.every((item) => item.done)) {
+    task.subtasksHidden = true;
+  }
   reorderTasks(participant);
   archiveFinishedGoal(participant);
   saveState();
