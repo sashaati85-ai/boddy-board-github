@@ -1747,6 +1747,7 @@ function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
   if (!task?.subtasks?.some((subtask) => subtask.id === subtaskId)) return;
 
   event.preventDefault();
+  event.stopPropagation();
   const card = event.currentTarget;
   const rect = card.getBoundingClientRect();
   const clone = card.cloneNode(true);
@@ -1782,7 +1783,9 @@ function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
 function onSubtaskDragMove(event) {
   const element = document.elementFromPoint(event.clientX, event.clientY);
   const newTarget = element?.closest(".subtask-card");
-  if (newTarget && newTarget !== dragState.card) {
+  const targetTaskCard = newTarget?.closest(".task-card");
+  const isSameTask = targetTaskCard?.dataset.taskId === dragState.taskId;
+  if (newTarget && newTarget !== dragState.card && isSameTask) {
     document.querySelectorAll(".subtask-card.drag-over").forEach((node) => node.classList.remove("drag-over"));
     newTarget.classList.add("drag-over");
     dragState.targetSubtaskId = newTarget.dataset.subtaskId;
@@ -1820,6 +1823,7 @@ function moveDraggedSubtask(participantId, taskId, draggedSubtaskId, targetSubta
 
   const [draggedSubtask] = task.subtasks.splice(draggedIndex, 1);
   task.subtasks.splice(targetIndex, 0, draggedSubtask);
+  reorderSubtasks(task);
   saveState();
   render();
 }
