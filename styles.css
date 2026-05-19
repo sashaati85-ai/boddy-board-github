@@ -297,6 +297,14 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
   flex-wrap: wrap;
 }
 
+.place-icon {
+  min-width: 28px;
+  color: #f27d32;
+  font-size: 20px;
+  line-height: 1;
+  text-align: center;
+}
+
 .dashboard-avatar {
   width: 34px;
   height: 34px;

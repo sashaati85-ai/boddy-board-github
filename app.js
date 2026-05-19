@@ -2159,18 +2159,21 @@ function getPlaceBadge(place) {
   if (place === 1) {
     return {
       key: "championBadge",
+      icon: "🏆",
       text: state.uiText?.championBadge || "Чемпион дня",
     };
   }
   if (place === 2) {
     return {
       key: "secondPlaceBadge",
-      text: state.uiText?.secondPlaceBadge || "🥈🥈",
+      icon: "🥈🥈",
+      text: state.uiText?.secondPlaceBadge || "Второе место",
     };
   }
   return {
     key: "thirdPlaceBadge",
-    text: state.uiText?.thirdPlaceBadge || "🥉",
+    icon: "🥉",
+    text: state.uiText?.thirdPlaceBadge || "Третье место",
   };
 }
 
@@ -2178,6 +2181,7 @@ function renderChartRow(participant, progress, place) {
   const node = chartTemplate.content.firstElementChild.cloneNode(true);
   const championBadge = node.querySelector(".champion-badge");
   const avatar = node.querySelector(".chart-avatar");
+  const placeIcon = node.querySelector(".place-icon");
   const isChampion = place === 1;
   const placeBadge = getPlaceBadge(place);
 
@@ -2189,6 +2193,10 @@ function renderChartRow(participant, progress, place) {
     avatar.src = participant.picture || "";
     avatar.hidden = !participant.picture;
     avatar.alt = participant.picture ? `Фото ${participant.name}` : "";
+  }
+  if (placeIcon) {
+    placeIcon.textContent = placeBadge.icon;
+    placeIcon.setAttribute("aria-label", placeBadge.text);
   }
   node.querySelector(".chart-name").textContent = participant.name;
   championBadge.dataset.editKey = placeBadge.key;
