@@ -89,6 +89,7 @@ const openAnnouncementButton = document.querySelector("#openAnnouncementButton")
 const adminLogoutButton = document.querySelector("#adminLogoutButton");
 const adminAnnouncementPanel = document.querySelector("#adminAnnouncementPanel");
 const announcementInput = document.querySelector("#announcementInput");
+const announcementRecipientSelect = document.querySelector("#announcementRecipientSelect");
 const publishAnnouncementButton = document.querySelector("#publishAnnouncementButton");
 const deleteAnnouncementButton = document.querySelector("#deleteAnnouncementButton");
 const announcementMessage = document.querySelector("#announcementMessage");
@@ -468,7 +469,20 @@ function normalizeAnnouncement(announcement) {
     id: announcement.id || crypto.randomUUID(),
     text: String(announcement.text || "").trim(),
     createdAt: announcement.createdAt || Date.now(),
+    recipient: normalizeAnnouncementRecipient(announcement.recipient),
     readBy: Array.isArray(announcement.readBy) ? announcement.readBy : [],
+  };
+}
+
+function normalizeAnnouncementRecipient(recipient) {
+  if (!recipient || typeof recipient !== "object") {
+    return { type: "all", participantId: "" };
+  }
+
+  const type = recipient.type === "participant" ? "participant" : "all";
+  return {
+    type,
+    participantId: type === "participant" ? String(recipient.participantId || "") : "",
   };
 }
 
@@ -1576,6 +1590,9 @@ function showAnnouncementMessage(message, isError) {
 function publishAnnouncement() {
   const text = announcementInput.value.trim();
   if (!state.isAdmin) return;
+  const recipientValue = announcementRecipientSelect?.value || "all";
+  const isPersonalRecipient = recipientValue.startsWith("participant:");
+  const participantId = isPersonalRecipient ? recipientValue.replace("participant:", "") : "";
 
   if (!text) {
     showAnnouncementMessage("Напишите текст новости.", true);
@@ -1583,15 +1600,25 @@ function publishAnnouncement() {
     return;
   }
 
+  if (isPersonalRecipient && !findParticipant(participantId)) {
+    showAnnouncementMessage("Выберите участника для личной новости.", true);
+    announcementRecipientSelect?.focus();
+    return;
+  }
+
   state.announcement = {
     id: crypto.randomUUID(),
     text,
     createdAt: Date.now(),
+    recipient: {
+      type: isPersonalRecipient ? "participant" : "all",
+      participantId,
+    },
     readBy: [],
   };
   announcementInput.value = "";
   showAnnouncementMessage("", false);
-  showAdminMessage("Новость опубликована для участников.", false);
+  showAdminMessage(isPersonalRecipient ? "Новость отправлена выбранному участнику." : "Новость опубликована для всех участников.", false);
   saveState();
   closeModals();
   render();
@@ -2364,6 +2391,7 @@ function renderAnnouncementAdminPanel() {
   if (!state.isAdmin) return;
 
   announcementReadList.replaceChildren();
+  renderAnnouncementRecipientOptions();
 
   if (state.announcement?.text) {
     announcementInput.placeholder = state.announcement.text;
@@ -2386,7 +2414,16 @@ function renderAnnouncementAdminPanel() {
     return;
   }
 
-  state.participants.forEach((participant) => {
+  const targetParticipants = getAnnouncementTargetParticipants(state.announcement);
+  if (targetParticipants.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Получатель новости не найден.";
+    announcementReadList.append(empty);
+    return;
+  }
+
+  targetParticipants.forEach((participant) => {
     const row = document.createElement("div");
     const name = document.createElement("span");
     const status = document.createElement("strong");
@@ -2400,13 +2437,64 @@ function renderAnnouncementAdminPanel() {
   });
 }
 
+function renderAnnouncementRecipientOptions() {
+  if (!announcementRecipientSelect) return;
+
+  const selectedValue = announcementRecipientSelect.value || getAnnouncementRecipientValue(state.announcement);
+  announcementRecipientSelect.replaceChildren();
+
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "Все пользователи";
+  announcementRecipientSelect.append(allOption);
+
+  state.participants.forEach((participant) => {
+    const option = document.createElement("option");
+    option.value = `participant:${participant.id}`;
+    option.textContent = participant.name;
+    announcementRecipientSelect.append(option);
+  });
+
+  announcementRecipientSelect.value = [...announcementRecipientSelect.options].some(
+    (option) => option.value === selectedValue,
+  )
+    ? selectedValue
+    : "all";
+}
+
+function getAnnouncementRecipientValue(announcement) {
+  const recipient = normalizeAnnouncementRecipient(announcement?.recipient);
+  return recipient.type === "participant" && recipient.participantId
+    ? `participant:${recipient.participantId}`
+    : "all";
+}
+
+function getAnnouncementTargetParticipants(announcement) {
+  const recipient = normalizeAnnouncementRecipient(announcement?.recipient);
+  if (recipient.type === "participant") {
+    return state.participants.filter((participant) => participant.id === recipient.participantId);
+  }
+
+  return state.participants;
+}
+
+function shouldShowAnnouncementToParticipant(participant) {
+  if (!participant || !state.announcement?.text) return false;
+  if (state.announcement.readBy.includes(participant.id)) return false;
+
+  const recipient = normalizeAnnouncementRecipient(state.announcement.recipient);
+  if (recipient.type === "participant" && recipient.participantId !== participant.id) return false;
+  if (recipient.type === "all" && !participant.onboardingCompleted) return false;
+
+  return true;
+}
+
 function renderAnnouncementModal() {
   const active = findParticipant(state.activeParticipantId);
   const shouldShow =
     active &&
     !state.isAdmin &&
-    state.announcement?.text &&
-    !state.announcement.readBy.includes(active.id) &&
+    shouldShowAnnouncementToParticipant(active) &&
     welcomeGate.hidden &&
     loginModal.hidden &&
     adminModal.hidden &&

@@ -184,6 +184,10 @@
             <span data-edit-key="announcementInputLabel">Новость для участников</span>
             <textarea id="announcementInput" maxlength="420" rows="4" placeholder="Напишите важную новость для группы" data-placeholder-key="announcementPlaceholder"></textarea>
           </label>
+          <label class="announcement-label">
+            <span data-edit-key="announcementRecipientLabel">Кому отправить</span>
+            <select id="announcementRecipientSelect"></select>
+          </label>
           <button id="publishAnnouncementButton" class="primary-action" type="button" data-edit-key="publishAnnouncementButton">Опубликовать новость</button>
           <button id="deleteAnnouncementButton" class="danger-action" type="button" hidden data-edit-key="deleteAnnouncementButton">Удалить новость</button>
           <p id="announcementMessage" class="auth-message"></p>
