@@ -275,7 +275,12 @@ async function refreshSharedState() {
 
     const freshState = normalizeState(await response.json());
     if (freshState.participants.length === 0 && state.participants.length > 0) {
-      saveSharedState(state);
+      await saveSharedState(state);
+      return;
+    }
+
+    if (shouldKeepLocalActiveParticipant(state, freshState)) {
+      await saveSharedState(state);
       return;
     }
 
@@ -330,11 +335,33 @@ async function loadState() {
       return localState;
     }
 
+    if (shouldKeepLocalActiveParticipant(localState, sharedState)) {
+      await saveSharedState(localState);
+      return localState;
+    }
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(sharedState)));
     return sharedState;
   } catch {
     return localState;
   }
+}
+
+function shouldKeepLocalActiveParticipant(localState, sharedState) {
+  const localActive = localState.participants.find(
+    (participant) => participant.id === localState.activeParticipantId,
+  );
+  if (!localActive) return false;
+
+  const activeExistsInShared = sharedState.participants.some(
+    (participant) => participant.id === localActive.id,
+  );
+  if (activeExistsInShared) return false;
+
+  const deletedNames = Array.isArray(sharedState.deletedParticipantIds)
+    ? sharedState.deletedParticipantIds
+    : [];
+  return !deletedNames.includes(localActive.name.toLowerCase());
 }
 
 function loadLocalState() {
@@ -748,7 +775,7 @@ function saveState() {
   const sharedState = toSharedState(state);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
   persistLocalSession();
-  saveSharedState(state);
+  return saveSharedState(state);
 }
 
 const tourSteps = [
@@ -1140,7 +1167,7 @@ async function joinAsParticipant(source = {}) {
   if (participantPasswordInput) participantPasswordInput.value = "";
   clearFileInput(participantPhotoFileInput);
   if (participantRegistrationKeyInput) participantRegistrationKeyInput.value = "";
-  saveState();
+  await saveState();
   closeModals();
   render();
   if (!participant.onboardingCompleted) {
