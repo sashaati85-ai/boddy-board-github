@@ -277,10 +277,10 @@ function createDefaultSiteImages() {
 
 function createSharedStateUrls() {
   const urls = [];
+  urls.push(DIRECT_SHARED_STATE_URL, SHARED_STATE_URL);
   if (window.location.protocol === "http:" || window.location.protocol === "https:") {
     urls.push(`${window.location.origin}/api/state`);
   }
-  urls.push(SHARED_STATE_URL, DIRECT_SHARED_STATE_URL);
   return [...new Set(urls)];
 }
 
@@ -1093,6 +1093,7 @@ function toSharedState(source, options = {}) {
 
 async function fetchSharedState() {
   let lastError = null;
+  let mergedState = null;
 
   for (const url of SHARED_STATE_URLS) {
     try {
@@ -1105,18 +1106,21 @@ async function fetchSharedState() {
         continue;
       }
 
-      return normalizeState(await response.json());
+      const nextState = normalizeState(await response.json());
+      mergedState = mergedState ? mergeSharedStates(mergedState, nextState) : nextState;
     } catch (error) {
       lastError = error;
     }
   }
+
+  if (mergedState) return mergedState;
 
   throw lastError || new Error("Shared state unavailable");
 }
 
 async function saveSharedState(source, options = {}) {
   if (SHARED_STATE_URLS.length === 0) return;
-  const sharedState = toSharedState(source, options);
+  const sharedState = await prepareSharedStateForSave(source, options);
   let saved = false;
   let lastError = null;
 
@@ -1135,7 +1139,6 @@ async function saveSharedState(source, options = {}) {
         continue;
       }
       saved = true;
-      break;
     } catch (error) {
       lastError = error;
     }
@@ -1145,6 +1148,119 @@ async function saveSharedState(source, options = {}) {
     console.warn("Не удалось синхронизировать общую доску.", lastError);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
   }
+}
+
+async function prepareSharedStateForSave(source, options = {}) {
+  const incomingState = normalizeState(toSharedState(source, options));
+
+  try {
+    const remoteState = await fetchSharedState();
+    return toSharedState(mergeSharedStates(remoteState, incomingState, options), options);
+  } catch {
+    return toSharedState(incomingState, options);
+  }
+}
+
+function mergeSharedStates(baseState, nextState, options = {}) {
+  const base = normalizeState(baseState);
+  const next = normalizeState(nextState);
+  const deletedIds = [
+    ...new Set([
+      ...(base.deletedParticipantIds || []),
+      ...(next.deletedParticipantIds || []),
+    ]),
+  ];
+  const deletedSet = new Set(deletedIds);
+  const participantsById = new Map();
+
+  base.participants.forEach((participant) => {
+    if (participant.id) participantsById.set(participant.id, participant);
+  });
+  next.participants.forEach((participant) => {
+    if (participant.id) {
+      participantsById.set(participant.id, mergeParticipant(participantsById.get(participant.id), participant));
+    }
+  });
+
+  const announcement = getNewestAnnouncement(base.announcement, next.announcement);
+
+  return {
+    ...base,
+    ...next,
+    participants: [...participantsById.values()].filter((participant) => {
+      return !deletedSet.has(participant.id) && !deletedSet.has(participant.name.toLowerCase());
+    }),
+    adminPasswordHash: next.adminPasswordHash || base.adminPasswordHash,
+    adminPasswordChanged: Boolean(base.adminPasswordChanged || next.adminPasswordChanged),
+    registrationPasswordHash:
+      next.registrationPasswordHash ||
+      (options.allowEmptyRegistrationPassword ? "" : base.registrationPasswordHash),
+    siteImages: {
+      logo: next.siteImages?.logo || base.siteImages?.logo || DEFAULT_LOGO_URL,
+      cover: next.siteImages?.cover || base.siteImages?.cover || DEFAULT_COVER_URL,
+    },
+    uiText: {
+      ...base.uiText,
+      ...next.uiText,
+    },
+    uiPlaceholders: {
+      ...base.uiPlaceholders,
+      ...next.uiPlaceholders,
+    },
+    announcement,
+    deletedParticipantIds: deletedIds,
+    activeParticipantId: next.activeParticipantId || base.activeParticipantId,
+    viewedParticipantId: next.viewedParticipantId || base.viewedParticipantId,
+    isAdmin: next.isAdmin || base.isAdmin,
+  };
+}
+
+function mergeParticipant(baseParticipant, nextParticipant) {
+  if (!baseParticipant) return nextParticipant;
+  if (!nextParticipant) return baseParticipant;
+
+  return {
+    ...baseParticipant,
+    ...nextParticipant,
+    passwordHash: nextParticipant.passwordHash || baseParticipant.passwordHash || "",
+    picture: nextParticipant.picture || baseParticipant.picture || "",
+    email: nextParticipant.email || baseParticipant.email || "",
+    authProvider: nextParticipant.authProvider || baseParticipant.authProvider || "",
+    goal: nextParticipant.goal || baseParticipant.goal || "",
+    deadline: nextParticipant.deadline || baseParticipant.deadline || "",
+    deadlineLocked: Boolean(nextParticipant.deadlineLocked || baseParticipant.deadlineLocked),
+    deadlineWarningDismissedFor:
+      nextParticipant.deadlineWarningDismissedFor || baseParticipant.deadlineWarningDismissedFor || "",
+    onboardingCompleted: Boolean(nextParticipant.onboardingCompleted || baseParticipant.onboardingCompleted),
+    archivedGoals: mergeById(baseParticipant.archivedGoals, nextParticipant.archivedGoals),
+    tasks: chooseTaskList(baseParticipant.tasks, nextParticipant.tasks),
+    completedGoalNotice: nextParticipant.completedGoalNotice || baseParticipant.completedGoalNotice || null,
+  };
+}
+
+function mergeById(baseItems = [], nextItems = []) {
+  const itemsById = new Map();
+  baseItems.forEach((item) => {
+    if (item?.id) itemsById.set(item.id, item);
+  });
+  nextItems.forEach((item) => {
+    if (item?.id) itemsById.set(item.id, item);
+  });
+  return [...itemsById.values()];
+}
+
+function chooseTaskList(baseTasks = [], nextTasks = []) {
+  if (nextTasks.length === 0 && baseTasks.length > 0) return baseTasks;
+  if (baseTasks.length === 0) return nextTasks;
+  return nextTasks.length >= baseTasks.length ? nextTasks : baseTasks;
+}
+
+function getNewestAnnouncement(baseAnnouncement, nextAnnouncement) {
+  if (!baseAnnouncement) return nextAnnouncement || null;
+  if (!nextAnnouncement) return baseAnnouncement;
+  return (nextAnnouncement.createdAt || 0) >= (baseAnnouncement.createdAt || 0)
+    ? nextAnnouncement
+    : baseAnnouncement;
 }
 
 function isEditingParticipantContent() {
