@@ -2,6 +2,12 @@ const STORAGE_KEY = "boddy-board-v2";
 const SESSION_KEY = "boddy-board-session-v1";
 const LEGACY_KEYS = ["boddy-board-v1", "goal-board-v1"];
 const SHARED_STATE_URL = "https://boddy-board-github.vercel.app/api/state";
+const VERCEL_SHARED_STATE_URLS = [
+  SHARED_STATE_URL,
+  "https://boddy-board-github-sashaati85-ai.vercel.app/api/state",
+  "https://boddy-board-github-git-main-sashaati85-ai.vercel.app/api/state",
+  "https://boddy-board-github-sashaati85-ais-projects.vercel.app/api/state",
+];
 const DIRECT_SHARED_STATE_URL = "https://jsonblob.com/api/jsonBlob/019e3f17-632d-7aa4-9568-7e06c3aaf372";
 const SHARED_STATE_URLS = createSharedStateUrls();
 const ADMIN_LOGIN = "Sasha";
@@ -277,10 +283,12 @@ function createDefaultSiteImages() {
 
 function createSharedStateUrls() {
   const urls = [];
-  urls.push(DIRECT_SHARED_STATE_URL, SHARED_STATE_URL);
-  if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+  const isHttp = window.location.protocol === "http:" || window.location.protocol === "https:";
+  const isGitHubPages = window.location.hostname.endsWith("github.io");
+  if (isHttp && !isGitHubPages) {
     urls.push(`${window.location.origin}/api/state`);
   }
+  urls.push(...VERCEL_SHARED_STATE_URLS, DIRECT_SHARED_STATE_URL);
   return [...new Set(urls)];
 }
 
