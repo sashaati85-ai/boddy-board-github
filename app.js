@@ -103,6 +103,7 @@ const closeDeadlineWarningButton = document.querySelector("#closeDeadlineWarning
 const deadlineWarningText = document.querySelector("#deadlineWarningText");
 const deadlineConfirmModal = document.querySelector("#deadlineConfirmModal");
 const deadlineConfirmDate = document.querySelector("#deadlineConfirmDate");
+const editDeadlineConfirmButton = document.querySelector("#editDeadlineConfirmButton");
 const closeDeadlineConfirmButton = document.querySelector("#closeDeadlineConfirmButton");
 const cancelDeadlineConfirmButton = document.querySelector("#cancelDeadlineConfirmButton");
 const confirmDeadlineButton = document.querySelector("#confirmDeadlineButton");
@@ -211,6 +212,7 @@ publishAnnouncementButton.addEventListener("click", publishAnnouncement);
 deleteAnnouncementButton.addEventListener("click", deleteAnnouncement);
 closeAnnouncementButton.addEventListener("click", markAnnouncementRead);
 closeDeadlineWarningButton?.addEventListener("click", dismissDeadlineWarning);
+editDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation("edit"));
 closeDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation(false));
 cancelDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation(false));
 confirmDeadlineButton?.addEventListener("click", () => resolveDeadlineConfirmation(true));
@@ -1858,7 +1860,18 @@ function resolveDeadlineConfirmation(confirmed) {
   if (deadlineConfirmModal) {
     deadlineConfirmModal.hidden = true;
   }
-  resolve(Boolean(confirmed));
+  resolve(confirmed);
+}
+
+function reopenDatePicker(input) {
+  requestAnimationFrame(() => {
+    input.focus();
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  });
 }
 
 function dismissDeadlineWarning() {
@@ -3066,9 +3079,13 @@ function renderProfile() {
 
     if (!state.isAdmin && nextDeadline) {
       deadlineConfirmationInProgress = true;
-      const confirmed = await confirmDeadlineChoice(nextDeadline);
+      const confirmationResult = await confirmDeadlineChoice(nextDeadline);
       deadlineConfirmationInProgress = false;
-      if (!confirmed) {
+      if (confirmationResult === "edit") {
+        reopenDatePicker(deadlineInput);
+        return;
+      }
+      if (!confirmationResult) {
         deadlineInput.value = participant.deadline || "";
         return;
       }
@@ -3084,7 +3101,6 @@ function renderProfile() {
   };
   deadlineInput.addEventListener("input", clearDeadlineError);
   deadlineInput.addEventListener("change", scheduleDeadlineCommit);
-  deadlineInput.addEventListener("blur", commitDeadlineChange);
 
   taskForm.hidden = !editable;
   taskForm.addEventListener("submit", async (event) => {

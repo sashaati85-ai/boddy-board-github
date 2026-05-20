@@ -1669,11 +1669,19 @@ body.is-dragging-card * {
 .deadline-confirm-box {
   display: grid;
   gap: 6px;
+  width: 100%;
   margin-bottom: 12px;
   border: 1px solid #cfe4ff;
   border-radius: 14px;
   padding: 14px;
   background: #f4f9ff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.deadline-confirm-box:focus {
+  outline: 3px solid rgba(38, 120, 196, 0.22);
+  outline-offset: 2px;
 }
 
 .deadline-confirm-box span {
