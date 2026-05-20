@@ -1,4 +1,4 @@
-const STORE_URL = "https://jsonblob.com/api/jsonBlob/019e3f17-632d-7aa4-9568-7e06c3aaf372";
+const STORE_URL = "https://jsonblob.com/api/jsonBlob/019e46e2-c1d5-7c5b-bd04-d9710184ec78";
 
 function normalizeSharedState(value) {
   const source = value && typeof value === "object" ? value : {};
@@ -121,11 +121,7 @@ function mergeParticipants(currentParticipants = [], incomingParticipants = [], 
     }
   });
 
-  return [...participantsById.values()].filter(
-    (participant) =>
-      !deletedIds.has(participant.id) &&
-      !deletedIds.has(String(participant.name || "").toLowerCase()),
-  );
+  return [...participantsById.values()].filter((participant) => !deletedIds.has(participant.id));
 }
 
 function mergeParticipant(currentParticipant = {}, incomingParticipant = {}) {

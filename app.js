@@ -297,11 +297,6 @@ async function refreshSharedState() {
 
   try {
     const freshState = await fetchSharedState();
-    if (freshState.participants.length === 0 && state.participants.length > 0) {
-      await saveSharedState(state);
-      return;
-    }
-
     const previousSharedState = JSON.stringify(toSharedState(state));
     const nextSharedState = JSON.stringify(toSharedState(freshState));
     if (previousSharedState === nextSharedState) return;
@@ -341,33 +336,11 @@ async function loadState() {
 
   try {
     const sharedState = await fetchSharedState();
-    if (sharedState.participants.length === 0 && localState.participants.length > 0) {
-      await saveSharedState(localState);
-      return localState;
-    }
-
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(sharedState)));
     return sharedState;
   } catch {
     return localState;
   }
-}
-
-function shouldKeepLocalActiveParticipant(localState, sharedState) {
-  const localActive = localState.participants.find(
-    (participant) => participant.id === localState.activeParticipantId,
-  );
-  if (!localActive) return false;
-
-  const activeExistsInShared = sharedState.participants.some(
-    (participant) => participant.id === localActive.id,
-  );
-  if (activeExistsInShared) return false;
-
-  const deletedNames = Array.isArray(sharedState.deletedParticipantIds)
-    ? sharedState.deletedParticipantIds
-    : [];
-  return !deletedNames.includes(localActive.name.toLowerCase());
 }
 
 function loadLocalState() {
@@ -1163,9 +1136,7 @@ function mergeSharedStates(baseState, nextState, options = {}) {
   return {
     ...base,
     ...next,
-    participants: [...participantsById.values()].filter((participant) => {
-      return !deletedSet.has(participant.id) && !deletedSet.has(participant.name.toLowerCase());
-    }),
+    participants: [...participantsById.values()].filter((participant) => !deletedSet.has(participant.id)),
     adminPasswordHash: next.adminPasswordHash || base.adminPasswordHash,
     adminPasswordChanged: Boolean(base.adminPasswordChanged || next.adminPasswordChanged),
     registrationPasswordHash:
@@ -1366,9 +1337,7 @@ async function joinAsParticipant(source = {}) {
       return;
     }
 
-    if (state.deletedParticipantIds.includes(name.toLowerCase())) {
-      state.deletedParticipantIds = state.deletedParticipantIds.filter((item) => item !== name.toLowerCase());
-    }
+    state.deletedParticipantIds = (state.deletedParticipantIds || []).filter((item) => item !== name.toLowerCase());
     participant = {
       id: crypto.randomUUID(),
       name,
@@ -1436,8 +1405,6 @@ function showAuthMessage(message, isError, target = authMessage) {
 async function syncStateBeforeParticipantLogin() {
   try {
     const freshState = await fetchSharedStateWithTimeout();
-    if (freshState.participants.length === 0 && state.participants.length > 0) return;
-
     const activeParticipantId = state.activeParticipantId;
     const viewedParticipantId = state.viewedParticipantId;
     const isAdmin = state.isAdmin;
@@ -2413,7 +2380,6 @@ async function deleteAccount(participantId) {
     ...new Set([
       ...(state.deletedParticipantIds || []),
       participant.id,
-      participant.name.toLowerCase(),
     ]),
   ];
   if (state.announcement?.readBy) {
