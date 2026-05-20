@@ -2788,12 +2788,12 @@ function renderResults() {
   }
 
   const rankedParticipants = getSortedParticipants();
-  const visibleParticipants = rankedParticipants.slice(0, 3);
+  const visibleParticipants = rankedParticipants.filter(hasLeaderboardActivity).slice(0, 3);
 
   if (visibleParticipants.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "Пока нет участников для рейтинга.";
+    empty.textContent = "Пока никто не выполнил шаги.";
     resultChart.append(empty);
   } else {
     visibleParticipants.forEach((participant, index) => {
@@ -2806,6 +2806,11 @@ function renderResults() {
     const progress = getDashboardProgress(participant);
     renderTableRow(participant, progress);
   });
+}
+
+function hasLeaderboardActivity(participant) {
+  const progress = getDashboardProgress(participant);
+  return progress.percent > 0 || progress.done > 0;
 }
 
 function getPlaceBadge(place) {
