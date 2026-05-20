@@ -364,11 +364,6 @@ async function loadState() {
       return localState;
     }
 
-    if (shouldKeepLocalActiveParticipant(localState, sharedState)) {
-      await saveSharedState(localState);
-      return localState;
-    }
-
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(sharedState)));
     return sharedState;
   } catch {
@@ -816,7 +811,7 @@ async function saveRegistrationPassword() {
 
 function clearRegistrationPassword() {
   state.registrationPasswordHash = "";
-  saveState();
+  saveState({ allowEmptyRegistrationPassword: true });
   if (registrationPasswordStatus) {
     registrationPasswordStatus.textContent = "Пароль регистрации удалён. Регистрация новых участников теперь закрыта.";
   }
@@ -830,17 +825,17 @@ function clearRegistrationPassword() {
   registrationPasswordInput.value = "";
 }
 
-function saveState() {
+function saveState(options = {}) {
   if (scheduledSaveTimer) {
     clearTimeout(scheduledSaveTimer);
     scheduledSaveTimer = 0;
   }
-  const sharedState = toSharedState(state);
+  const sharedState = toSharedState(state, options);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
   persistLocalSession();
   lastLocalWriteAt = Date.now();
   pendingSharedSaveCount += 1;
-  return saveSharedState(state).finally(() => {
+  return saveSharedState(state, options).finally(() => {
     pendingSharedSaveCount = Math.max(0, pendingSharedSaveCount - 1);
   });
 }
@@ -1092,6 +1087,7 @@ function toSharedState(source, options = {}) {
     announcement: source.announcement,
     deletedParticipantIds: source.deletedParticipantIds || [],
     allowEmptyParticipants: Boolean(options.allowEmptyParticipants),
+    allowEmptyRegistrationPassword: Boolean(options.allowEmptyRegistrationPassword),
   };
 }
 
@@ -1248,6 +1244,8 @@ async function joinAsParticipant(source = {}) {
     return;
   }
 
+  await syncStateBeforeParticipantLogin();
+
   let participant = state.participants.find(
     (person) => person.name.toLowerCase() === name.toLowerCase(),
   );
@@ -1326,6 +1324,31 @@ function showAuthMessage(message, isError, target = authMessage) {
   if (!target) return;
   target.textContent = message;
   target.classList.toggle("is-error", isError);
+}
+
+async function syncStateBeforeParticipantLogin() {
+  if (SHARED_STATE_URLS.length === 0) return;
+
+  try {
+    const freshState = await fetchSharedState();
+    if (freshState.participants.length === 0 && state.participants.length > 0) return;
+
+    const activeParticipantId = state.activeParticipantId;
+    const viewedParticipantId = state.viewedParticipantId;
+    const isAdmin = state.isAdmin;
+
+    state = freshState;
+    state.activeParticipantId = freshState.participants.some((person) => person.id === activeParticipantId)
+      ? activeParticipantId
+      : "";
+    state.viewedParticipantId = freshState.participants.some((person) => person.id === viewedParticipantId)
+      ? viewedParticipantId
+      : freshState.participants[0]?.id || "";
+    state.isAdmin = isAdmin;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(state)));
+  } catch {
+    // Если сеть недоступна, пробуем вход по последней локальной копии.
+  }
 }
 
 async function loginAsAdmin() {
@@ -1413,7 +1436,7 @@ async function resetAllPasswords() {
   });
   state.isAdmin = false;
   localStorage.removeItem(SESSION_KEY);
-  saveState();
+  saveState({ allowEmptyRegistrationPassword: true });
 
   if (passwordResetMessage) {
     passwordResetMessage.textContent =

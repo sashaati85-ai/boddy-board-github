@@ -16,6 +16,7 @@ function normalizeSharedState(value) {
       ? source.deletedParticipantIds
       : [],
     allowEmptyParticipants: Boolean(source.allowEmptyParticipants),
+    allowEmptyRegistrationPassword: Boolean(source.allowEmptyRegistrationPassword),
   };
 }
 
@@ -59,6 +60,14 @@ module.exports = async function handler(request, response) {
     ]);
 
     data.adminPasswordChanged = data.adminPasswordChanged || currentData.adminPasswordChanged;
+    data.adminPasswordHashV2 = data.adminPasswordHashV2 || currentData.adminPasswordHashV2;
+    data.registrationPasswordHash = data.registrationPasswordHash || (
+      data.allowEmptyRegistrationPassword ? "" : currentData.registrationPasswordHash
+    );
+    data.siteImages = {
+      logo: data.siteImages.logo || currentData.siteImages.logo,
+      cover: data.siteImages.cover || currentData.siteImages.cover,
+    };
     data.uiText = { ...currentData.uiText, ...data.uiText };
     data.uiPlaceholders = { ...currentData.uiPlaceholders, ...data.uiPlaceholders };
     data.deletedParticipantIds = [...deletedIds];
