@@ -1596,16 +1596,63 @@ body.is-dragging-card * {
 
 .announcement-card {
   width: min(560px, 100%);
-  text-align: center;
+}
+
+.announcement-important {
+  margin: 0 34px 14px 0;
+  color: var(--danger);
+  font-size: 22px;
+  font-weight: 950;
+  line-height: 1.2;
+}
+
+.announcement-message-box {
+  border: 1px solid #ffd4ca;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff7f4;
 }
 
 .announcement-text {
   margin: 0;
   color: var(--text);
-  font-size: 20px;
-  font-weight: 850;
+  font-size: 18px;
+  font-weight: 750;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+
+.deadline-warning-card {
+  width: min(520px, 100%);
+  border: 1px solid rgba(216, 77, 63, 0.22);
+}
+
+.deadline-warning-kicker {
+  display: inline-flex;
+  margin: 0 34px 10px 0;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.deadline-warning-card h2 {
+  margin: 0 34px 10px 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.deadline-warning-text {
+  margin: 0;
+  border-radius: 14px;
+  padding: 15px;
+  background: #fff7f4;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.5;
 }
 
 .modal-close {

@@ -97,6 +97,9 @@ const announcementReadList = document.querySelector("#announcementReadList");
 const announcementModal = document.querySelector("#announcementModal");
 const closeAnnouncementButton = document.querySelector("#closeAnnouncementButton");
 const announcementText = document.querySelector("#announcementText");
+const deadlineWarningModal = document.querySelector("#deadlineWarningModal");
+const closeDeadlineWarningButton = document.querySelector("#closeDeadlineWarningButton");
+const deadlineWarningText = document.querySelector("#deadlineWarningText");
 const activeBadge = document.querySelector("#activeBadge");
 const brandLogo = document.querySelector("#brandLogo");
 const logoImageInput = document.querySelector("#logoImageInput");
@@ -145,6 +148,10 @@ document.querySelectorAll(".modal-layer").forEach((layer) => {
       markAnnouncementRead();
       return;
     }
+    if (layer === deadlineWarningModal) {
+      dismissDeadlineWarning();
+      return;
+    }
     closeModals();
   });
 });
@@ -152,6 +159,10 @@ document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (!announcementModal.hidden) {
     markAnnouncementRead();
+    return;
+  }
+  if (deadlineWarningModal && !deadlineWarningModal.hidden) {
+    dismissDeadlineWarning();
     return;
   }
   closeModals();
@@ -185,6 +196,7 @@ adminLogoutButton.addEventListener("click", logoutAdmin);
 publishAnnouncementButton.addEventListener("click", publishAnnouncement);
 deleteAnnouncementButton.addEventListener("click", deleteAnnouncement);
 closeAnnouncementButton.addEventListener("click", markAnnouncementRead);
+closeDeadlineWarningButton?.addEventListener("click", dismissDeadlineWarning);
 window.addEventListener("resize", scheduleTourPositionUpdate);
 window.addEventListener("scroll", scheduleTourPositionUpdate, { passive: true });
 window.addEventListener("focus", refreshSharedState);
@@ -409,6 +421,7 @@ function normalizeState(candidate) {
     goal: person.goal || "",
     deadline: person.deadline || "",
     deadlineLocked: Boolean(person.deadlineLocked),
+    deadlineWarningDismissedFor: person.deadlineWarningDismissedFor || "",
     onboardingCompleted: Boolean(person.onboardingCompleted),
     completedGoalNotice: normalizeCompletedGoalNotice(person.completedGoalNotice),
     archivedGoals: Array.isArray(person.archivedGoals)
@@ -1148,6 +1161,9 @@ function closeModals() {
   adminNewsModal.hidden = true;
   registrationPasswordModal.hidden = true;
   tourModal.hidden = true;
+  if (deadlineWarningModal) {
+    deadlineWarningModal.hidden = true;
+  }
   clearTourHighlight();
   cancelTourPositionUpdate();
 }
@@ -1635,6 +1651,17 @@ function deleteAnnouncement() {
   render();
 }
 
+function dismissDeadlineWarning() {
+  const active = findParticipant(state.activeParticipantId);
+  if (active?.deadline) {
+    active.deadlineWarningDismissedFor = active.deadline;
+    saveState();
+  }
+  if (deadlineWarningModal) {
+    deadlineWarningModal.hidden = true;
+  }
+}
+
 function deleteArchivedGoal(participantId, archiveId) {
   const participant = findParticipant(participantId);
   if (!participant || !state.isAdmin) return;
@@ -1658,6 +1685,7 @@ function markAnnouncementRead() {
 
   announcementModal.hidden = true;
   renderAdminControls();
+  renderDeadlineWarningModal();
 }
 
 async function hashPassword(name, password) {
@@ -1780,6 +1808,7 @@ function updateDeadline(participantId, deadline) {
 
   participant.deadline = deadline;
   participant.deadlineLocked = Boolean(deadline);
+  participant.deadlineWarningDismissedFor = "";
   archiveFinishedGoal(participant);
   saveState();
   render();
@@ -2263,6 +2292,18 @@ function isDeadlineExpired(deadline) {
   return target < today;
 }
 
+function getDaysLeft(deadline) {
+  if (!deadline) return null;
+  const [year, month, day] = deadline.split("-").map(Number);
+  if (!year || !month || !day) return null;
+
+  const target = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target - today) / 86400000);
+}
+
 function getDeadlineInfo(deadline) {
   if (!deadline) {
     return { label: "Срок не указан", tone: "empty" };
@@ -2273,12 +2314,7 @@ function getDeadlineInfo(deadline) {
     return { label: "Срок не указан", tone: "empty" };
   }
 
-  const target = new Date(year, month - 1, day);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  target.setHours(0, 0, 0, 0);
-
-  const daysLeft = Math.ceil((target - today) / 86400000);
+  const daysLeft = getDaysLeft(deadline);
   const label = `${String(day).padStart(2, "0")}.${String(month).padStart(2, "0")}.${year}`;
 
   if (daysLeft < 0) {
@@ -2334,6 +2370,9 @@ function getActiveCompletedGoalNotice(participant) {
 }
 
 function render() {
+  if (archiveFinishedGoals()) {
+    saveState();
+  }
   renderWelcomeGate();
   renderSiteImages();
   renderAdminControls();
@@ -2341,6 +2380,7 @@ function render() {
   renderResults();
   renderProfile();
   renderAnnouncementModal();
+  renderDeadlineWarningModal();
   applyEditableText();
   if (tourModal && !tourModal.hidden) {
     renderTourStep();
@@ -2505,6 +2545,34 @@ function renderAnnouncementModal() {
   if (shouldShow) {
     announcementText.textContent = state.announcement.text;
   }
+}
+
+function renderDeadlineWarningModal() {
+  if (!deadlineWarningModal) return;
+
+  const active = findParticipant(state.activeParticipantId);
+  const daysLeft = getDaysLeft(active?.deadline || "");
+  const shouldShow =
+    active &&
+    !state.isAdmin &&
+    hasActiveGoal(active) &&
+    active.deadline &&
+    active.deadlineWarningDismissedFor !== active.deadline &&
+    daysLeft !== null &&
+    daysLeft >= 0 &&
+    daysLeft <= 7 &&
+    welcomeGate.hidden &&
+    loginModal.hidden &&
+    adminModal.hidden &&
+    adminNewsModal.hidden &&
+    announcementModal.hidden &&
+    tourModal.hidden;
+
+  deadlineWarningModal.hidden = !shouldShow;
+  if (!shouldShow) return;
+
+  const timeText = daysLeft === 0 ? "сегодня последний день" : `осталось ${formatDaysLeft(daysLeft)}`;
+  deadlineWarningText.textContent = `По цели «${active.goal || "без названия"}» ${timeText}. Самое время сделать следующий шаг.`;
 }
 
 function renderActiveBadge() {
