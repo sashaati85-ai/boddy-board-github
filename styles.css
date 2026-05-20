@@ -32,6 +32,10 @@ body {
   color: var(--text);
 }
 
+body.is-welcome-gate {
+  overflow: hidden;
+}
+
 button,
 input {
   font: inherit;
@@ -39,6 +43,119 @@ input {
 
 button {
   cursor: pointer;
+}
+
+.welcome-gate {
+  position: fixed;
+  z-index: 18;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  overflow: auto;
+  padding: 28px;
+  background: var(--page);
+}
+
+.welcome-gate-image,
+.welcome-gate-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.welcome-gate-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.welcome-gate-overlay {
+  background:
+    linear-gradient(90deg, rgba(17, 24, 39, 0.56), rgba(17, 24, 39, 0.16) 48%, rgba(242, 125, 50, 0.2)),
+    linear-gradient(180deg, rgba(88, 183, 232, 0.2), rgba(237, 238, 240, 0.72));
+}
+
+.welcome-gate-content {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  align-items: center;
+  gap: 34px;
+  width: min(980px, 100%);
+}
+
+.welcome-gate-content > .eyebrow {
+  grid-column: 1;
+  align-self: end;
+  margin-bottom: -18px;
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 2px 14px rgba(17, 24, 39, 0.36);
+}
+
+.welcome-gate-content h1 {
+  grid-column: 1;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(46px, 8vw, 92px);
+  line-height: 0.95;
+  letter-spacing: 0;
+  text-shadow: 0 18px 42px rgba(17, 24, 39, 0.34);
+  animation: welcomeTextIn 760ms ease both;
+}
+
+.welcome-login-card {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 18px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 28px 70px rgba(17, 24, 39, 0.25);
+  backdrop-filter: blur(12px);
+  animation: welcomeCardIn 620ms ease 150ms both;
+}
+
+.welcome-login-card h2 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.welcome-form input[type="file"] {
+  width: 100%;
+}
+
+.welcome-photo-label {
+  border: 1px dashed rgba(81, 129, 184, 0.4);
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: rgba(245, 247, 250, 0.76);
+}
+
+@keyframes welcomeTextIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes welcomeCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .app-shell {
@@ -1471,6 +1588,32 @@ body.is-dragging-card * {
 }
 
 @media (max-width: 900px) {
+  .welcome-gate {
+    align-items: start;
+    padding: 22px;
+  }
+
+  .welcome-gate-content {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding-top: 8vh;
+  }
+
+  .welcome-gate-content > .eyebrow,
+  .welcome-gate-content h1,
+  .welcome-login-card {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .welcome-gate-content > .eyebrow {
+    margin-bottom: -8px;
+  }
+
+  .welcome-login-card {
+    width: min(460px, 100%);
+  }
+
   .topbar,
   .top-actions {
     align-items: flex-start;
@@ -1487,6 +1630,35 @@ body.is-dragging-card * {
 }
 
 @media (max-width: 620px) {
+  .welcome-gate {
+    padding: 16px;
+  }
+
+  .welcome-gate-overlay {
+    background:
+      linear-gradient(180deg, rgba(17, 24, 39, 0.28), rgba(17, 24, 39, 0.46) 42%, rgba(237, 238, 240, 0.2)),
+      linear-gradient(90deg, rgba(88, 183, 232, 0.18), rgba(242, 125, 50, 0.2));
+  }
+
+  .welcome-gate-content {
+    min-height: calc(100vh - 32px);
+    align-content: end;
+    gap: 12px;
+    padding-top: 0;
+  }
+
+  .welcome-gate-content h1 {
+    font-size: clamp(42px, 14vw, 64px);
+  }
+
+  .welcome-login-card {
+    padding: 18px;
+  }
+
+  .welcome-login-card h2 {
+    font-size: 24px;
+  }
+
   .app-shell {
     width: min(100vw - 20px, 1460px);
     padding-top: 10px;

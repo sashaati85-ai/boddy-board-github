@@ -34,6 +34,13 @@ const openAdminSettingsButton = document.querySelector("#openAdminSettingsButton
 const toggleTextEditButton = document.querySelector("#toggleTextEditButton");
 const openRegistrationPasswordButton = document.querySelector("#openRegistrationPasswordButton");
 const registrationStatus = document.querySelector("#registrationStatus");
+const welcomeGate = document.querySelector("#welcomeGate");
+const welcomeRegistrationKeyInput = document.querySelector("#welcomeRegistrationKeyInput");
+const welcomeNameInput = document.querySelector("#welcomeNameInput");
+const welcomePasswordInput = document.querySelector("#welcomePasswordInput");
+const welcomeParticipantPhotoInput = document.querySelector("#welcomeParticipantPhotoInput");
+const welcomeJoinButton = document.querySelector("#welcomeJoinButton");
+const welcomeAuthMessage = document.querySelector("#welcomeAuthMessage");
 const loginModal = document.querySelector("#loginModal");
 const adminModal = document.querySelector("#adminModal");
 const adminNewsModal = document.querySelector("#adminNewsModal");
@@ -145,6 +152,13 @@ document.addEventListener("keydown", (event) => {
 });
 document.addEventListener("click", handleEditableTextClick, true);
 joinButton.addEventListener("click", joinAsParticipant);
+welcomeJoinButton?.addEventListener("click", () => joinAsParticipant({
+  nameInput: welcomeNameInput,
+  passwordInput: welcomePasswordInput,
+  registrationKeyInput: welcomeRegistrationKeyInput,
+  participantPhotoInput: welcomeParticipantPhotoInput,
+  messageElement: welcomeAuthMessage,
+}));
 participantLogoutButton.addEventListener("click", logoutParticipant);
 adminLoginButton.addEventListener("click", loginAsAdmin);
 saveAdminPasswordButton?.addEventListener("click", saveAdminPassword);
@@ -174,10 +188,23 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 setInterval(refreshSharedState, 5000);
-[nameInput, passwordInput].forEach((input) => {
-  input.addEventListener("keydown", (event) => {
+[registrationKeyInput, nameInput, passwordInput].forEach((input) => {
+  input?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       joinAsParticipant();
+    }
+  });
+});
+[welcomeRegistrationKeyInput, welcomeNameInput, welcomePasswordInput].forEach((input) => {
+  input?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      joinAsParticipant({
+        nameInput: welcomeNameInput,
+        passwordInput: welcomePasswordInput,
+        registrationKeyInput: welcomeRegistrationKeyInput,
+        participantPhotoInput: welcomeParticipantPhotoInput,
+        messageElement: welcomeAuthMessage,
+      });
     }
   });
 });
@@ -786,6 +813,7 @@ function openTour(participantId) {
   loginModal.hidden = true;
   adminModal.hidden = true;
   adminNewsModal.hidden = true;
+  announcementModal.hidden = true;
   registrationPasswordModal.hidden = true;
   tourModal.hidden = false;
   renderTourStep();
@@ -1022,21 +1050,34 @@ function openPasswordResetModal() {
   openModal(passwordResetModal, passwordResetCodeInput);
 }
 
-async function joinAsParticipant() {
-  const name = nameInput.value.trim();
-  const password = passwordInput.value;
-  const registrationKey = registrationKeyInput?.value.trim();
-  const uploadedPicture = await readOptionalImageFile(participantPhotoInput);
+async function joinAsParticipant(source = {}) {
+  const fields = {
+    nameInput,
+    passwordInput,
+    registrationKeyInput,
+    participantPhotoInput,
+    messageElement: authMessage,
+    ...source,
+  };
+  const participantNameInput = fields.nameInput;
+  const participantPasswordInput = fields.passwordInput;
+  const participantRegistrationKeyInput = fields.registrationKeyInput;
+  const participantPhotoFileInput = fields.participantPhotoInput;
+  const messageElement = fields.messageElement;
+  const name = participantNameInput?.value.trim() || "";
+  const password = participantPasswordInput?.value || "";
+  const registrationKey = participantRegistrationKeyInput?.value.trim();
+  const uploadedPicture = await readOptionalImageFile(participantPhotoFileInput);
 
   if (!name) {
-    showAuthMessage("Введите имя.", true);
-    nameInput.focus();
+    showAuthMessage("Введите имя.", true, messageElement);
+    participantNameInput?.focus();
     return;
   }
 
   if (!password) {
-    showAuthMessage("Введите пароль.", true);
-    passwordInput.focus();
+    showAuthMessage("Введите пароль.", true, messageElement);
+    participantPasswordInput?.focus();
     return;
   }
 
@@ -1048,18 +1089,18 @@ async function joinAsParticipant() {
   if (!participant) {
     if (state.registrationPasswordHash) {
       if (!registrationKey) {
-        showAuthMessage("Для регистрации нового участника введите пароль администратора.", true);
-        registrationKeyInput.focus();
+        showAuthMessage("Для регистрации нового участника введите пароль администратора.", true, messageElement);
+        participantRegistrationKeyInput?.focus();
         return;
       }
       const registrationHash = await hashPassword("registration", registrationKey);
       if (registrationHash !== state.registrationPasswordHash) {
-        showAuthMessage("Неверный пароль регистрации. Узнайте его у администратора.", true);
-        registrationKeyInput.select();
+        showAuthMessage("Неверный пароль регистрации. Узнайте его у администратора.", true, messageElement);
+        participantRegistrationKeyInput?.select();
         return;
       }
     } else {
-      showAuthMessage("Регистрация закрыта. Узнайте пароль у администратора.", true);
+      showAuthMessage("Регистрация закрыта. Узнайте пароль у администратора.", true, messageElement);
       return;
     }
 
@@ -1079,26 +1120,26 @@ async function joinAsParticipant() {
       onboardingCompleted: false,
     };
     state.participants.push(participant);
-    showAuthMessage("Аккаунт создан. Теперь это ваша страница.", false);
+    showAuthMessage("Аккаунт создан. Теперь это ваша страница.", false, messageElement);
   } else if (!participant.passwordHash) {
     participant.passwordHash = passwordHash;
     participant.picture = uploadedPicture || participant.picture || "";
-    showAuthMessage("Пароль сохранён для этого имени.", false);
+    showAuthMessage("Пароль сохранён для этого имени.", false, messageElement);
   } else if (participant.passwordHash !== passwordHash) {
-    showAuthMessage("Пароль не подходит для этого имени.", true);
-    passwordInput.select();
+    showAuthMessage("Пароль не подходит для этого имени.", true, messageElement);
+    participantPasswordInput?.select();
     return;
   } else {
     participant.picture = uploadedPicture || participant.picture || "";
-    showAuthMessage("Вы вошли в свою страницу.", false);
+    showAuthMessage("Вы вошли в свою страницу.", false, messageElement);
   }
 
   state.activeParticipantId = participant.id;
   state.viewedParticipantId = participant.id;
-  nameInput.value = "";
-  passwordInput.value = "";
-  clearFileInput(participantPhotoInput);
-  if (registrationKeyInput) registrationKeyInput.value = "";
+  if (participantNameInput) participantNameInput.value = "";
+  if (participantPasswordInput) participantPasswordInput.value = "";
+  clearFileInput(participantPhotoFileInput);
+  if (participantRegistrationKeyInput) participantRegistrationKeyInput.value = "";
   saveState();
   closeModals();
   render();
@@ -1114,9 +1155,10 @@ function logoutParticipant() {
   render();
 }
 
-function showAuthMessage(message, isError) {
-  authMessage.textContent = message;
-  authMessage.classList.toggle("is-error", isError);
+function showAuthMessage(message, isError, target = authMessage) {
+  if (!target) return;
+  target.textContent = message;
+  target.classList.toggle("is-error", isError);
 }
 
 async function loginAsAdmin() {
@@ -2116,6 +2158,7 @@ function getSortedParticipants() {
 }
 
 function render() {
+  renderWelcomeGate();
   renderSiteImages();
   renderAdminControls();
   renderActiveBadge();
@@ -2126,6 +2169,14 @@ function render() {
   if (tourModal && !tourModal.hidden) {
     renderTourStep();
   }
+}
+
+function renderWelcomeGate() {
+  if (!welcomeGate) return;
+  const active = findParticipant(state.activeParticipantId);
+  const shouldShow = !active && !state.isAdmin && !isAdminRoute();
+  welcomeGate.hidden = !shouldShow;
+  document.body.classList.toggle("is-welcome-gate", shouldShow);
 }
 
 function renderAdminControls() {
@@ -2207,9 +2258,11 @@ function renderAnnouncementModal() {
     !state.isAdmin &&
     state.announcement?.text &&
     !state.announcement.readBy.includes(active.id) &&
+    welcomeGate.hidden &&
     loginModal.hidden &&
     adminModal.hidden &&
-    adminNewsModal.hidden;
+    adminNewsModal.hidden &&
+    tourModal.hidden;
 
   announcementModal.hidden = !shouldShow;
   if (shouldShow) {

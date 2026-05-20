@@ -7,6 +7,30 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <section id="welcomeGate" class="welcome-gate" aria-label="Вход нового участника" hidden>
+      <img class="welcome-gate-image" src="assets/boddy-logo.jpg" alt="Два человека помогают друг другу подняться в гору">
+      <div class="welcome-gate-overlay"></div>
+      <div class="welcome-gate-content">
+        <p class="eyebrow" data-edit-key="welcomeEyebrow">Твой Бадди</p>
+        <h1 data-edit-key="welcomeTitle">Вместе легче</h1>
+        <section class="welcome-login-card" aria-labelledby="welcomeLoginTitle">
+          <p class="eyebrow" data-edit-key="welcomeLoginEyebrow">Участник</p>
+          <h2 id="welcomeLoginTitle" data-edit-key="welcomeLoginTitle">Войти как участник</h2>
+          <div class="modal-form welcome-form">
+            <input id="welcomeRegistrationKeyInput" type="password" maxlength="60" placeholder="Пароль от администратора" data-placeholder-key="welcomeRegistrationKeyPlaceholder">
+            <input id="welcomeNameInput" type="text" maxlength="40" placeholder="Ваше имя" data-placeholder-key="welcomeNamePlaceholder">
+            <input id="welcomePasswordInput" type="password" maxlength="60" placeholder="Придумайте свой пароль" data-placeholder-key="welcomePasswordPlaceholder">
+            <label class="photo-upload-label welcome-photo-label">
+              <span data-edit-key="welcomeParticipantAvatarLabel">Аватарка участника</span>
+              <input id="welcomeParticipantPhotoInput" type="file" accept="image/*">
+            </label>
+            <button id="welcomeJoinButton" class="primary-action" type="button" data-edit-key="welcomeJoinButton">Войти / создать</button>
+          </div>
+          <p id="welcomeAuthMessage" class="auth-message"></p>
+        </section>
+      </div>
+    </section>
+
     <main class="app-shell">
       <header class="topbar">
         <div class="brand">
