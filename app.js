@@ -2771,15 +2771,25 @@ function renderGoalArchive(container, participant) {
     const title = document.createElement("strong");
     const meta = document.createElement("p");
     const status = document.createElement("span");
+    const isCompleted = goal.status === "completed";
 
     card.className = "archive-card";
+    card.classList.toggle("archive-card-completed", isCompleted);
+    card.classList.toggle("archive-card-expired", !isCompleted);
     main.className = "archive-main";
     title.textContent = goal.title || "Цель без названия";
     meta.textContent = getArchiveMeta(goal);
-    status.className = `archive-status archive-${goal.status === "completed" ? "completed" : "expired"}`;
-    status.textContent = goal.status === "completed" ? "Достигнута" : "Срок прошёл";
+    status.className = `archive-status archive-${isCompleted ? "completed" : "expired"}`;
+    status.textContent = isCompleted ? "Цель достигнута" : "Не достигнута";
 
     main.append(title, meta);
+    if (isCompleted) {
+      const trophy = document.createElement("span");
+      trophy.className = "archive-trophy";
+      trophy.textContent = "🏆";
+      trophy.setAttribute("aria-label", "Цель достигнута");
+      card.append(trophy);
+    }
     card.append(main, status);
 
     if (state.isAdmin) {
