@@ -1,8 +1,7 @@
 const STORAGE_KEY = "boddy-board-v2";
 const SESSION_KEY = "boddy-board-session-v1";
 const LEGACY_KEYS = ["boddy-board-v1", "goal-board-v1"];
-const DIRECT_SHARED_STATE_URL = "https://jsonblob.com/api/jsonBlob/019e3f17-632d-7aa4-9568-7e06c3aaf372";
-const SHARED_STATE_URL = DIRECT_SHARED_STATE_URL;
+const SHARED_STATE_URL = "https://boddy-board-github.vercel.app/api/state";
 const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 const PASSWORD_RESET_CODE = "Любовь";

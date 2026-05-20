@@ -117,7 +117,7 @@ function mergeParticipants(currentParticipants = [], incomingParticipants = [], 
 
   incomingParticipants.forEach((participant) => {
     if (participant?.id) {
-      participantsById.set(participant.id, participant);
+      participantsById.set(participant.id, mergeParticipant(participantsById.get(participant.id), participant));
     }
   });
 
@@ -126,6 +126,43 @@ function mergeParticipants(currentParticipants = [], incomingParticipants = [], 
       !deletedIds.has(participant.id) &&
       !deletedIds.has(String(participant.name || "").toLowerCase()),
   );
+}
+
+function mergeParticipant(currentParticipant = {}, incomingParticipant = {}) {
+  return {
+    ...currentParticipant,
+    ...incomingParticipant,
+    passwordHash: incomingParticipant.passwordHash || currentParticipant.passwordHash || "",
+    picture: incomingParticipant.picture || currentParticipant.picture || "",
+    email: incomingParticipant.email || currentParticipant.email || "",
+    authProvider: incomingParticipant.authProvider || currentParticipant.authProvider || "",
+    goal: incomingParticipant.goal || currentParticipant.goal || "",
+    deadline: incomingParticipant.deadline || currentParticipant.deadline || "",
+    deadlineLocked: Boolean(incomingParticipant.deadlineLocked || currentParticipant.deadlineLocked),
+    deadlineWarningDismissedFor:
+      incomingParticipant.deadlineWarningDismissedFor || currentParticipant.deadlineWarningDismissedFor || "",
+    onboardingCompleted: Boolean(incomingParticipant.onboardingCompleted || currentParticipant.onboardingCompleted),
+    archivedGoals: mergeById(currentParticipant.archivedGoals, incomingParticipant.archivedGoals),
+    tasks: chooseTaskList(currentParticipant.tasks, incomingParticipant.tasks),
+    completedGoalNotice: incomingParticipant.completedGoalNotice || currentParticipant.completedGoalNotice || null,
+  };
+}
+
+function mergeById(currentItems = [], incomingItems = []) {
+  const itemsById = new Map();
+  currentItems.forEach((item) => {
+    if (item?.id) itemsById.set(item.id, item);
+  });
+  incomingItems.forEach((item) => {
+    if (item?.id) itemsById.set(item.id, item);
+  });
+  return [...itemsById.values()];
+}
+
+function chooseTaskList(currentTasks = [], incomingTasks = []) {
+  if (incomingTasks.length === 0 && currentTasks.length > 0) return currentTasks;
+  if (currentTasks.length === 0) return incomingTasks;
+  return incomingTasks.length >= currentTasks.length ? incomingTasks : currentTasks;
 }
 
 function normalizeEditableMap(value = {}) {
