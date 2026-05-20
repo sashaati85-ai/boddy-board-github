@@ -1100,7 +1100,11 @@ function toSharedState(source, options = {}) {
 }
 
 async function fetchSharedState() {
-  const results = await Promise.allSettled(SHARED_STATE_URLS.map(async (url) => {
+  return fetchMergedSharedState(SHARED_STATE_URLS);
+}
+
+async function fetchMergedSharedState(urls) {
+  const results = await Promise.allSettled(urls.map(async (url) => {
     const response = await fetch(url, {
       headers: { Accept: "application/json" },
       cache: "no-store",
@@ -1127,13 +1131,38 @@ async function fetchSharedState() {
 }
 
 async function fetchSharedStateWithTimeout(timeout = 2500) {
-  let timeoutId = 0;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = window.setTimeout(() => reject(new Error("Shared state timeout")), timeout);
+  const results = await Promise.allSettled(
+    SHARED_STATE_URLS.map((url) => fetchSharedStateFromUrlWithTimeout(url, timeout)),
+  );
+  let mergedState = null;
+  let lastError = null;
+
+  results.forEach((result) => {
+    if (result.status === "rejected") {
+      lastError = result.reason;
+      return;
+    }
+    mergedState = mergedState ? mergeSharedStates(mergedState, result.value) : result.value;
   });
 
+  if (mergedState) return mergedState;
+  throw lastError || new Error("Shared state unavailable");
+}
+
+async function fetchSharedStateFromUrlWithTimeout(url, timeout) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeout);
+
   try {
-    return await Promise.race([fetchSharedState(), timeoutPromise]);
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Shared state GET failed: ${response.status}`);
+    }
+    return normalizeState(await response.json());
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -1432,9 +1461,18 @@ async function joinAsParticipant(source = {}) {
     participant.picture = uploadedPicture || participant.picture || "";
     showAuthMessage("Пароль сохранён для этого имени.", false, messageElement);
   } else if (participant.passwordHash !== passwordHash) {
-    showAuthMessage("Пароль не подходит для этого имени.", true, messageElement);
-    participantPasswordInput?.select();
-    return;
+    await syncStateBeforeParticipantLogin();
+    participant = state.participants.find(
+      (person) => person.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (participant?.passwordHash === passwordHash) {
+      participant.picture = uploadedPicture || participant.picture || "";
+      showAuthMessage("Вы вошли в свою страницу.", false, messageElement);
+    } else {
+      showAuthMessage("Пароль не подходит для этого имени.", true, messageElement);
+      participantPasswordInput?.select();
+      return;
+    }
   } else {
     participant.picture = uploadedPicture || participant.picture || "";
     showAuthMessage("Вы вошли в свою страницу.", false, messageElement);
