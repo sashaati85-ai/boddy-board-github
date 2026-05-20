@@ -406,6 +406,11 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
   background: #fff8f0;
 }
 
+.chart-row.has-completed-goal {
+  border-color: rgba(242, 125, 50, 0.58);
+  background: linear-gradient(90deg, #fff8f0, #ffffff);
+}
+
 .chart-person {
   display: flex;
   min-width: 0;
@@ -449,6 +454,25 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
   font-weight: 950;
   line-height: 1;
   white-space: nowrap;
+}
+
+.completed-goal-note {
+  color: var(--orange-dark);
+  font-size: 13px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.completed-goal-clear {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #ffe4dd;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .chart-row[data-place="2"] .champion-badge,

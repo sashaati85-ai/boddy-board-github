@@ -7,6 +7,7 @@ const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 const PASSWORD_RESET_CODE = "Любовь";
 const DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
 const DEFAULT_COVER_URL = "assets/boddy-cover.png";
+const COMPLETED_GOAL_NOTICE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 const defaultParticipant = {
   id: crypto.randomUUID(),
@@ -266,6 +267,9 @@ async function initialize() {
   if (archiveFinishedGoals()) {
     saveState();
   }
+  if (clearExpiredCompletedGoalNotices()) {
+    saveState();
+  }
   render();
   if (isAdminRoute()) {
     openAdminPanel();
@@ -317,9 +321,10 @@ async function refreshSharedState() {
     state.isAdmin = isAdmin;
     persistLocalSession();
     const hasArchivedGoals = archiveFinishedGoals();
+    const hasExpiredNotices = clearExpiredCompletedGoalNotices();
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(state)));
-    if (hasArchivedGoals) {
+    if (hasArchivedGoals || hasExpiredNotices) {
       saveSharedState(state);
     }
     render();
@@ -404,6 +409,7 @@ function normalizeState(candidate) {
     deadline: person.deadline || "",
     deadlineLocked: Boolean(person.deadlineLocked),
     onboardingCompleted: Boolean(person.onboardingCompleted),
+    completedGoalNotice: normalizeCompletedGoalNotice(person.completedGoalNotice),
     archivedGoals: Array.isArray(person.archivedGoals)
       ? person.archivedGoals.map((goal) => ({
           id: goal.id || crypto.randomUUID(),
@@ -463,6 +469,21 @@ function normalizeAnnouncement(announcement) {
     text: String(announcement.text || "").trim(),
     createdAt: announcement.createdAt || Date.now(),
     readBy: Array.isArray(announcement.readBy) ? announcement.readBy : [],
+  };
+}
+
+function normalizeCompletedGoalNotice(notice) {
+  if (!notice || typeof notice !== "object") return null;
+
+  const completedAt = Number(notice.completedAt) || Date.now();
+  const expiresAt = Number(notice.expiresAt) || completedAt + COMPLETED_GOAL_NOTICE_TTL;
+  if (expiresAt <= Date.now()) return null;
+
+  return {
+    id: notice.id || crypto.randomUUID(),
+    title: String(notice.title || "Цель без названия"),
+    completedAt,
+    expiresAt,
   };
 }
 
@@ -1653,6 +1674,17 @@ function archiveFinishedGoals() {
   }, false);
 }
 
+function clearExpiredCompletedGoalNotices() {
+  const now = Date.now();
+  return state.participants.reduce((changed, participant) => {
+    if (participant.completedGoalNotice?.expiresAt && participant.completedGoalNotice.expiresAt <= now) {
+      participant.completedGoalNotice = null;
+      return true;
+    }
+    return changed;
+  }, false);
+}
+
 function archiveFinishedGoal(participant) {
   if (!participant || !hasActiveGoal(participant)) return false;
 
@@ -1661,22 +1693,41 @@ function archiveFinishedGoal(participant) {
   const expired = isDeadlineExpired(participant.deadline) && !completed;
   if (!completed && !expired) return false;
 
+  const archivedAt = Date.now();
+  const goalTitle = participant.goal || "Цель без названия";
   participant.archivedGoals = Array.isArray(participant.archivedGoals) ? participant.archivedGoals : [];
   participant.archivedGoals.unshift({
     id: crypto.randomUUID(),
-    title: participant.goal || "Цель без названия",
+    title: goalTitle,
     deadline: participant.deadline || "",
     status: completed ? "completed" : "expired",
     progress: progress.percent,
     doneTasks: progress.done,
     totalTasks: progress.total,
-    archivedAt: Date.now(),
+    archivedAt,
   });
+  if (completed) {
+    participant.completedGoalNotice = {
+      id: crypto.randomUUID(),
+      title: goalTitle,
+      completedAt: archivedAt,
+      expiresAt: archivedAt + COMPLETED_GOAL_NOTICE_TTL,
+    };
+  }
   participant.goal = "";
   participant.deadline = "";
   participant.deadlineLocked = false;
   participant.tasks = [];
   return true;
+}
+
+function clearCompletedGoalNotice(participantId) {
+  const participant = findParticipant(participantId);
+  if (!participant) return;
+
+  participant.completedGoalNotice = null;
+  saveState();
+  render();
 }
 
 function hasActiveGoal(participant) {
@@ -2231,10 +2282,28 @@ function formatDaysLeft(days) {
 
 function getSortedParticipants() {
   return [...state.participants].sort((a, b) => {
-    const progressDiff = getProgress(b.tasks).percent - getProgress(a.tasks).percent;
+    const progressDiff = getDashboardProgress(b).percent - getDashboardProgress(a).percent;
     if (progressDiff !== 0) return progressDiff;
     return a.name.localeCompare(b.name, "ru");
   });
+}
+
+function getDashboardProgress(participant) {
+  if (getActiveCompletedGoalNotice(participant)) {
+    return { total: 1, done: 1, percent: 100 };
+  }
+
+  return getProgress(participant.tasks);
+}
+
+function getActiveCompletedGoalNotice(participant) {
+  const notice = normalizeCompletedGoalNotice(participant?.completedGoalNotice);
+  if (!notice) {
+    if (participant) participant.completedGoalNotice = null;
+    return null;
+  }
+  participant.completedGoalNotice = notice;
+  return notice;
 }
 
 function render() {
@@ -2410,7 +2479,9 @@ function renderResults() {
   }
 
   const rankedParticipants = getSortedParticipants();
-  const activeParticipants = rankedParticipants.filter((participant) => getProgress(participant.tasks).percent > 0);
+  const activeParticipants = rankedParticipants.filter((participant) => {
+    return getDashboardProgress(participant).percent > 0;
+  });
 
   if (activeParticipants.length === 0) {
     const empty = document.createElement("p");
@@ -2421,13 +2492,13 @@ function renderResults() {
     const visibleParticipants = activeParticipants.slice(0, 3);
 
     visibleParticipants.forEach((participant, index) => {
-      const progress = getProgress(participant.tasks);
+      const progress = getDashboardProgress(participant);
       renderChartRow(participant, progress, index + 1);
     });
   }
 
   rankedParticipants.forEach((participant) => {
-    const progress = getProgress(participant.tasks);
+    const progress = getDashboardProgress(participant);
     renderTableRow(participant, progress);
   });
 }
@@ -2459,12 +2530,20 @@ function renderChartRow(participant, progress, place) {
   const championBadge = node.querySelector(".champion-badge");
   const avatar = node.querySelector(".chart-avatar");
   const placeIcon = node.querySelector(".place-icon");
-  const isChampion = place === 1;
-  const placeBadge = getPlaceBadge(place);
+  const completedNotice = getActiveCompletedGoalNotice(participant);
+  const isChampion = place === 1 || Boolean(completedNotice);
+  const placeBadge = completedNotice
+    ? {
+        key: "completedGoalChampionBadge",
+        icon: "🏆",
+        text: state.uiText?.completedGoalChampionBadge || "Чемпион",
+      }
+    : getPlaceBadge(place);
 
   node.classList.toggle("is-active", isActive(participant.id));
   node.classList.toggle("is-viewed", state.viewedParticipantId === participant.id);
   node.classList.toggle("is-champion", isChampion);
+  node.classList.toggle("has-completed-goal", Boolean(completedNotice));
   node.dataset.place = String(place);
   if (avatar) {
     avatar.src = participant.picture || "";
@@ -2479,6 +2558,30 @@ function renderChartRow(participant, progress, place) {
   championBadge.dataset.editKey = placeBadge.key;
   championBadge.textContent = placeBadge.text;
   championBadge.hidden = false;
+  if (completedNotice) {
+    const completedText = document.createElement("span");
+    completedText.className = "completed-goal-note";
+    completedText.textContent = `${formatCompletedDate(completedNotice.completedAt)} выполнил свою цель`;
+    node.querySelector(".chart-person").append(completedText);
+    if (state.isAdmin) {
+      const clearButton = document.createElement("span");
+      clearButton.className = "completed-goal-clear";
+      clearButton.textContent = "Удалить";
+      clearButton.setAttribute("role", "button");
+      clearButton.tabIndex = 0;
+      clearButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        clearCompletedGoalNotice(participant.id);
+      });
+      clearButton.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        event.stopPropagation();
+        clearCompletedGoalNotice(participant.id);
+      });
+      node.querySelector(".chart-person").append(clearButton);
+    }
+  }
   node.querySelector(".chart-percent").textContent = `${progress.percent}%`;
   node.querySelector(".chart-bar").style.width = `${progress.percent}%`;
   node.addEventListener("click", () => viewParticipant(participant.id));
@@ -2502,12 +2605,17 @@ function renderTableRow(participant, progress) {
     avatar.alt = participant.picture ? `Фото ${participant.name}` : "";
   }
   nameButton.addEventListener("click", () => viewParticipant(participant.id));
-  row.querySelector(".table-goal").textContent = participant.goal || "Цель ещё не указана";
+  const completedNotice = getActiveCompletedGoalNotice(participant);
+  row.querySelector(".table-goal").textContent = completedNotice
+    ? `${formatCompletedDate(completedNotice.completedAt)} выполнил свою цель`
+    : participant.goal || "Цель ещё не указана";
   const deadlinePill = row.querySelector(".deadline-pill");
   const deadlineInfo = getDeadlineInfo(participant.deadline);
   deadlinePill.textContent = deadlineInfo.label;
   deadlinePill.classList.add(`deadline-${deadlineInfo.tone}`);
-  row.querySelector(".table-count").textContent = `${progress.done} из ${progress.total}`;
+  row.querySelector(".table-count").textContent = completedNotice
+    ? "Цель выполнена"
+    : `${progress.done} из ${progress.total}`;
   row.querySelector(".table-progress-bar").style.width = `${progress.percent}%`;
   row.querySelector(".table-progress-percent").textContent = `${progress.percent}%`;
   adminCell.hidden = !state.isAdmin;
@@ -2632,6 +2740,11 @@ function renderProfile() {
     nextGoalPanel.hidden = !canStartNextGoal;
   }
   newGoalButton?.addEventListener("click", () => {
+    if (participant.completedGoalNotice) {
+      participant.completedGoalNotice = null;
+      saveState();
+      renderResults();
+    }
     goalInput.focus();
     goalInput.scrollIntoView({ block: "center", behavior: "smooth" });
   });
@@ -2696,6 +2809,13 @@ function formatDate(dateValue) {
   const [year, month, day] = String(dateValue || "").split("-").map(Number);
   if (!year || !month || !day) return "без срока";
   return `${String(day).padStart(2, "0")}.${String(month).padStart(2, "0")}.${year}`;
+}
+
+function formatCompletedDate(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Сегодня";
+
+  return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
 }
 
 function createSubtaskCard(participantId, taskId, subtask, editable) {
