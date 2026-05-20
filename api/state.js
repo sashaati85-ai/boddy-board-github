@@ -158,7 +158,72 @@ function mergeById(currentItems = [], incomingItems = []) {
 function chooseTaskList(currentTasks = [], incomingTasks = []) {
   if (incomingTasks.length === 0 && currentTasks.length > 0) return currentTasks;
   if (currentTasks.length === 0) return incomingTasks;
-  return incomingTasks.length >= currentTasks.length ? incomingTasks : currentTasks;
+  const tasksById = new Map();
+  currentTasks.forEach((task) => {
+    if (task?.id) tasksById.set(task.id, task);
+  });
+  incomingTasks.forEach((task) => {
+    if (task?.id) tasksById.set(task.id, mergeTask(tasksById.get(task.id), task));
+  });
+
+  const preferredOrder = getListUpdatedAt(incomingTasks) >= getListUpdatedAt(currentTasks)
+    ? incomingTasks
+    : currentTasks;
+  const orderedTasks = [];
+  preferredOrder.forEach((task) => {
+    const mergedTask = tasksById.get(task.id);
+    if (mergedTask) orderedTasks.push(mergedTask);
+    tasksById.delete(task.id);
+  });
+  return [...orderedTasks, ...tasksById.values()];
+}
+
+function mergeTask(currentTask = {}, incomingTask = {}) {
+  const useIncomingTask = getItemUpdatedAt(incomingTask) >= getItemUpdatedAt(currentTask);
+  const preferredTask = useIncomingTask ? incomingTask : currentTask;
+  const fallbackTask = useIncomingTask ? currentTask : incomingTask;
+
+  return {
+    ...fallbackTask,
+    ...preferredTask,
+    subtasks: mergeSubtasks(currentTask.subtasks, incomingTask.subtasks),
+  };
+}
+
+function mergeSubtasks(currentSubtasks = [], incomingSubtasks = []) {
+  const subtasksById = new Map();
+  currentSubtasks.forEach((subtask) => {
+    if (subtask?.id) subtasksById.set(subtask.id, subtask);
+  });
+  incomingSubtasks.forEach((subtask) => {
+    if (!subtask?.id) return;
+    const currentSubtask = subtasksById.get(subtask.id);
+    subtasksById.set(
+      subtask.id,
+      !currentSubtask || getItemUpdatedAt(subtask) >= getItemUpdatedAt(currentSubtask)
+        ? subtask
+        : currentSubtask,
+    );
+  });
+
+  const preferredOrder = getListUpdatedAt(incomingSubtasks) >= getListUpdatedAt(currentSubtasks)
+    ? incomingSubtasks
+    : currentSubtasks;
+  const orderedSubtasks = [];
+  preferredOrder.forEach((subtask) => {
+    const mergedSubtask = subtasksById.get(subtask.id);
+    if (mergedSubtask) orderedSubtasks.push(mergedSubtask);
+    subtasksById.delete(subtask.id);
+  });
+  return [...orderedSubtasks, ...subtasksById.values()];
+}
+
+function getListUpdatedAt(items = []) {
+  return items.reduce((latest, item) => Math.max(latest, getItemUpdatedAt(item)), 0);
+}
+
+function getItemUpdatedAt(item = {}) {
+  return Number(item.updatedAt || item.createdAt || 0);
 }
 
 function normalizeEditableMap(value = {}) {

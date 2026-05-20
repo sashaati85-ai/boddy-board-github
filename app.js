@@ -275,11 +275,13 @@ newAdminPasswordInput?.addEventListener("keydown", (event) => {
 });
 
 function createTask(title, done = false, subtasks = []) {
+  const now = Date.now();
   return {
     id: crypto.randomUUID(),
     title,
     done,
-    createdAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
     subtasks,
     subtasksHidden: true,
   };
@@ -408,12 +410,14 @@ function normalizeState(candidate) {
           title: task.title || "Шаг",
           done: Boolean(task.done || task.status === "done"),
           createdAt: task.createdAt || Date.now(),
+          updatedAt: task.updatedAt || task.createdAt || Date.now(),
           subtasks: Array.isArray(task.subtasks)
             ? task.subtasks.map((subtask) => ({
                 id: subtask.id || crypto.randomUUID(),
                 title: subtask.title || "Доп. шаг",
                 done: Boolean(subtask.done || subtask.status === "done"),
                 createdAt: subtask.createdAt || Date.now(),
+                updatedAt: subtask.updatedAt || subtask.createdAt || Date.now(),
               }))
             : [],
           subtasksHidden: typeof task.subtasksHidden === "boolean" ? task.subtasksHidden : true,
@@ -537,6 +541,7 @@ function migrateLegacyState() {
         title: task.title,
         done: task.status === "done",
         createdAt: task.createdAt || Date.now(),
+        updatedAt: task.updatedAt || task.createdAt || Date.now(),
       })),
     };
 
@@ -1218,7 +1223,75 @@ function mergeById(baseItems = [], nextItems = []) {
 function chooseTaskList(baseTasks = [], nextTasks = []) {
   if (nextTasks.length === 0 && baseTasks.length > 0) return baseTasks;
   if (baseTasks.length === 0) return nextTasks;
-  return nextTasks.length >= baseTasks.length ? nextTasks : baseTasks;
+  const tasksById = new Map();
+  baseTasks.forEach((task) => {
+    if (task?.id) tasksById.set(task.id, task);
+  });
+  nextTasks.forEach((task) => {
+    if (task?.id) tasksById.set(task.id, mergeTask(tasksById.get(task.id), task));
+  });
+
+  const preferredOrder = getTaskListUpdatedAt(nextTasks) >= getTaskListUpdatedAt(baseTasks)
+    ? nextTasks
+    : baseTasks;
+  const orderedTasks = [];
+  preferredOrder.forEach((task) => {
+    const mergedTask = tasksById.get(task.id);
+    if (mergedTask) orderedTasks.push(mergedTask);
+    tasksById.delete(task.id);
+  });
+  return [...orderedTasks, ...tasksById.values()];
+}
+
+function mergeTask(baseTask, nextTask) {
+  if (!baseTask) return nextTask;
+  if (!nextTask) return baseTask;
+
+  const useNextTask = getItemUpdatedAt(nextTask) >= getItemUpdatedAt(baseTask);
+  const preferredTask = useNextTask ? nextTask : baseTask;
+  const fallbackTask = useNextTask ? baseTask : nextTask;
+
+  return {
+    ...fallbackTask,
+    ...preferredTask,
+    subtasks: mergeSubtasks(baseTask.subtasks, nextTask.subtasks),
+  };
+}
+
+function mergeSubtasks(baseSubtasks = [], nextSubtasks = []) {
+  const subtasksById = new Map();
+  baseSubtasks.forEach((subtask) => {
+    if (subtask?.id) subtasksById.set(subtask.id, subtask);
+  });
+  nextSubtasks.forEach((subtask) => {
+    if (!subtask?.id) return;
+    const currentSubtask = subtasksById.get(subtask.id);
+    subtasksById.set(
+      subtask.id,
+      !currentSubtask || getItemUpdatedAt(subtask) >= getItemUpdatedAt(currentSubtask)
+        ? subtask
+        : currentSubtask,
+    );
+  });
+
+  const preferredOrder = getTaskListUpdatedAt(nextSubtasks) >= getTaskListUpdatedAt(baseSubtasks)
+    ? nextSubtasks
+    : baseSubtasks;
+  const orderedSubtasks = [];
+  preferredOrder.forEach((subtask) => {
+    const mergedSubtask = subtasksById.get(subtask.id);
+    if (mergedSubtask) orderedSubtasks.push(mergedSubtask);
+    subtasksById.delete(subtask.id);
+  });
+  return [...orderedSubtasks, ...subtasksById.values()];
+}
+
+function getTaskListUpdatedAt(items = []) {
+  return items.reduce((latest, item) => Math.max(latest, getItemUpdatedAt(item)), 0);
+}
+
+function getItemUpdatedAt(item = {}) {
+  return Number(item.updatedAt || item.createdAt || 0);
 }
 
 function getNewestAnnouncement(baseAnnouncement, nextAnnouncement) {
@@ -2054,6 +2127,7 @@ function toggleTask(participantId, taskId, done) {
   if (!task || (Array.isArray(task.subtasks) && task.subtasks.length > 0)) return;
 
   task.done = done;
+  task.updatedAt = Date.now();
   reorderTasks(participant);
   archiveFinishedGoal(participant);
   saveState();
@@ -2095,15 +2169,18 @@ function addSubtask(participantId, taskId, title) {
   const task = participant.tasks.find((item) => item.id === taskId);
   if (!task) return;
 
+  const now = Date.now();
   task.subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
   task.subtasks.unshift({
     id: crypto.randomUUID(),
     title: title.trim(),
     done: false,
-    createdAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
   });
   task.subtasksHidden = false;
   task.done = false;
+  task.updatedAt = now;
   saveState();
   render();
 }
@@ -2118,7 +2195,10 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
   const subtask = task.subtasks.find((item) => item.id === subtaskId);
   if (!subtask) return;
 
+  const now = Date.now();
   subtask.done = done;
+  subtask.updatedAt = now;
+  task.updatedAt = now;
   reorderSubtasks(task);
   if (task.subtasks.length > 0 && task.subtasks.every((item) => item.done)) {
     task.subtasksHidden = true;
@@ -2137,6 +2217,7 @@ function deleteSubtask(participantId, taskId, subtaskId) {
   if (!task || !Array.isArray(task.subtasks)) return;
 
   task.subtasks = task.subtasks.filter((subtask) => subtask.id !== subtaskId);
+  task.updatedAt = Date.now();
   reorderSubtasks(task);
   reorderTasks(participant);
   archiveFinishedGoal(participant);
@@ -2152,6 +2233,7 @@ function toggleSubtasksVisibility(participantId, taskId) {
   if (!task) return;
 
   task.subtasksHidden = !task.subtasksHidden;
+  task.updatedAt = Date.now();
   saveState();
   render();
 }
@@ -2425,6 +2507,9 @@ function moveDraggedSubtask(participantId, taskId, draggedSubtaskId, targetSubta
 
   const [draggedSubtask] = task.subtasks.splice(draggedIndex, 1);
   task.subtasks.splice(targetIndex, 0, draggedSubtask);
+  const now = Date.now();
+  draggedSubtask.updatedAt = now;
+  task.updatedAt = now;
   reorderSubtasks(task);
   saveState();
   render();
@@ -3300,7 +3385,11 @@ function createSubtaskCard(participantId, taskId, subtask, editable) {
     save.addEventListener("click", () => {
       const v = input.value && input.value.trim();
       if (!v) return;
+      const task = findParticipant(participantId)?.tasks.find((item) => item.id === taskId);
+      const now = Date.now();
       subtask.title = v;
+      subtask.updatedAt = now;
+      if (task) task.updatedAt = now;
       saveState();
       render();
     });
@@ -3432,6 +3521,7 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
       const v = input.value && input.value.trim();
       if (!v) return;
       task.title = v;
+      task.updatedAt = Date.now();
       saveState();
       render();
     });
