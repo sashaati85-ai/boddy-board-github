@@ -2231,6 +2231,12 @@ function toggleSubtasksVisibility(participantId, taskId) {
 
   const task = participant.tasks.find((item) => item.id === taskId);
   if (!task) return;
+  if (isTaskComplete(task)) {
+    task.subtasksHidden = true;
+    saveState();
+    render();
+    return;
+  }
 
   task.subtasksHidden = !task.subtasksHidden;
   task.updatedAt = Date.now();
@@ -3428,6 +3434,9 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   const completed = isTaskComplete(task);
   const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
   const remaining = subtasks.filter((subtask) => !subtask.done).length;
+  if (completed && subtasks.length > 0 && !task.subtasksHidden) {
+    task.subtasksHidden = true;
+  }
 
   const subtaskCountEl = card.querySelector(".subtask-count");
   if (subtasks.length > 0) {
@@ -3446,18 +3455,19 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   checkbox.disabled = !editable || subtasks.length > 0;
   editButton.hidden = !editable;
   completeBadge.hidden = !completed;
-  addSubtaskButton.hidden = !editable;
-  subtaskToggle.hidden = subtasks.length === 0;
+  addSubtaskButton.hidden = !editable || completed;
+  subtaskToggle.hidden = subtasks.length === 0 || completed;
   subtaskToggle.textContent = subtasks.length === 0
     ? ""
     : `${task.subtasksHidden ? "Показать" : "Скрыть"} доп. шаги (${remaining})`;
-  subtaskPanel.hidden = subtasks.length === 0 || task.subtasksHidden;
+  subtaskPanel.hidden = subtasks.length === 0 || task.subtasksHidden || completed;
 
   checkbox.addEventListener("change", () => toggleTask(participantId, task.id, checkbox.checked));
   card.addEventListener("pointerdown", (event) => beginCardDrag(event, participantId, task.id));
   subtaskToggle.addEventListener("click", () => toggleSubtasksVisibility(participantId, task.id));
   addSubtaskButton.addEventListener("click", (e) => {
     e.stopPropagation();
+    if (isTaskComplete(task)) return;
     task.subtasksHidden = false;
     // reveal panel immediately in current DOM
     subtaskPanel.hidden = false;
