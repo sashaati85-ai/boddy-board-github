@@ -1659,6 +1659,50 @@ body.is-dragging-card * {
     font-size: 24px;
   }
 
+  #tourModal.tour-overlay {
+    align-items: end;
+    padding: 10px;
+    background: rgba(17, 24, 39, 0.2);
+  }
+
+  #tourModal.tour-overlay .modal-card {
+    width: calc(100vw - 20px);
+    max-height: 38vh;
+    overflow: auto;
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .tour-card::after {
+    display: none;
+  }
+
+  .tour-card h2 {
+    margin: 0 34px 6px 0;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  .tour-description {
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .tour-progress {
+    margin-bottom: 10px;
+  }
+
+  .tour-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #tourSkipButton,
+  #tourNextButton {
+    min-height: 40px;
+    padding: 0 10px;
+  }
+
   .app-shell {
     width: min(100vw - 20px, 1460px);
     padding-top: 10px;

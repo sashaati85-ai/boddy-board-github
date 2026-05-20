@@ -26,6 +26,10 @@ let state = createInitialState();
 let dragState = null;
 let pendingTouchDrag = null;
 let textEditMode = false;
+let pendingSharedSaveCount = 0;
+let lastLocalWriteAt = 0;
+let scheduledSaveTimer = 0;
+const LOCAL_WRITE_GRACE_MS = 3000;
 
 const openLoginButton = document.querySelector("#openLoginButton");
 const participantLogoutButton = document.querySelector("#participantLogoutButton");
@@ -182,7 +186,15 @@ closeAnnouncementButton.addEventListener("click", markAnnouncementRead);
 window.addEventListener("resize", scheduleTourPositionUpdate);
 window.addEventListener("scroll", scheduleTourPositionUpdate, { passive: true });
 window.addEventListener("focus", refreshSharedState);
+window.addEventListener("beforeunload", () => {
+  if (scheduledSaveTimer) {
+    saveState();
+  }
+});
 document.addEventListener("visibilitychange", () => {
+  if (document.hidden && scheduledSaveTimer) {
+    saveState();
+  }
   if (!document.hidden) {
     refreshSharedState();
   }
@@ -262,6 +274,8 @@ async function initialize() {
 
 async function refreshSharedState() {
   if (!SHARED_STATE_URL) return;
+  if (pendingSharedSaveCount > 0 || Date.now() - lastLocalWriteAt < LOCAL_WRITE_GRACE_MS) return;
+  if (isEditingParticipantContent()) return;
   if (loginModal && !loginModal.hidden) return;
   if (adminNewsModal && !adminNewsModal.hidden && document.activeElement === announcementInput) return;
 
@@ -772,10 +786,29 @@ function clearRegistrationPassword() {
 }
 
 function saveState() {
+  if (scheduledSaveTimer) {
+    clearTimeout(scheduledSaveTimer);
+    scheduledSaveTimer = 0;
+  }
   const sharedState = toSharedState(state);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
   persistLocalSession();
-  return saveSharedState(state);
+  lastLocalWriteAt = Date.now();
+  pendingSharedSaveCount += 1;
+  return saveSharedState(state).finally(() => {
+    pendingSharedSaveCount = Math.max(0, pendingSharedSaveCount - 1);
+  });
+}
+
+function scheduleSaveState(delay = 450) {
+  lastLocalWriteAt = Date.now();
+  if (scheduledSaveTimer) {
+    clearTimeout(scheduledSaveTimer);
+  }
+  scheduledSaveTimer = window.setTimeout(() => {
+    scheduledSaveTimer = 0;
+    saveState();
+  }, delay);
 }
 
 const tourSteps = [
@@ -960,6 +993,15 @@ function placeTourCard(target, placement) {
   let top = 0;
   let left = 0;
 
+  if (isSmallTourViewport()) {
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    tourCard.classList.add("placement-bottom");
+    tourCard.classList.remove("placement-top", "placement-left", "placement-right");
+    tourCard.style.top = `${Math.max(10, viewportHeight - cardRect.height - 10)}px`;
+    tourCard.style.left = "10px";
+    return;
+  }
+
   switch (placement) {
     case "top":
       top = rect.top - cardRect.height - offset;
@@ -1023,6 +1065,17 @@ async function saveSharedState(source, options = {}) {
   } catch {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(source)));
   }
+}
+
+function isEditingParticipantContent() {
+  const activeElement = document.activeElement;
+  if (!activeElement) return false;
+  if (!profileView.contains(activeElement)) return false;
+  return activeElement.matches("input, textarea, select");
+}
+
+function isSmallTourViewport() {
+  return window.matchMedia("(max-width: 620px)").matches;
 }
 
 function openModal(modal, focusTarget) {
@@ -1167,7 +1220,7 @@ async function joinAsParticipant(source = {}) {
   if (participantPasswordInput) participantPasswordInput.value = "";
   clearFileInput(participantPhotoFileInput);
   if (participantRegistrationKeyInput) participantRegistrationKeyInput.value = "";
-  await saveState();
+  saveState();
   closeModals();
   render();
   if (!participant.onboardingCompleted) {
@@ -1639,7 +1692,7 @@ function updateGoal(participantId, goal) {
   if (!participant || !isActive(participantId)) return;
 
   participant.goal = goal;
-  saveState();
+  scheduleSaveState();
   renderResults();
 }
 
@@ -2509,6 +2562,11 @@ function renderProfile() {
   goalInput.value = participant.goal;
   goalInput.disabled = !editable;
   goalInput.addEventListener("input", () => updateGoal(participant.id, goalInput.value.trim()));
+  goalInput.addEventListener("blur", () => {
+    if (scheduledSaveTimer) {
+      saveState();
+    }
+  });
 
   deadlineInput.value = participant.deadline || "";
   deadlineInput.disabled = !canEditDeadline;
