@@ -2810,18 +2810,14 @@ function renderResults() {
   }
 
   const rankedParticipants = getSortedParticipants();
-  const activeParticipants = rankedParticipants.filter((participant) => {
-    return getDashboardProgress(participant).percent > 0;
-  });
+  const visibleParticipants = rankedParticipants.slice(0, 3);
 
-  if (activeParticipants.length === 0) {
+  if (visibleParticipants.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "Пока никто не сделал шаги. Здесь появится рейтинг участников, когда появятся выполненные задачи.";
+    empty.textContent = "Пока нет участников для рейтинга.";
     resultChart.append(empty);
   } else {
-    const visibleParticipants = activeParticipants.slice(0, 3);
-
     visibleParticipants.forEach((participant, index) => {
       const progress = getDashboardProgress(participant);
       renderChartRow(participant, progress, index + 1);

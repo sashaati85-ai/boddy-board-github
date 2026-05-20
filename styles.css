@@ -1818,10 +1818,56 @@ body.is-dragging-card * {
   }
 
   .stats-grid,
-  .chart-row,
   .goal-fields,
   .archive-card {
     grid-template-columns: 1fr;
+  }
+
+  .result-chart {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .chart-row {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .chart-person {
+    align-items: center;
+    gap: 7px;
+  }
+
+  .place-icon {
+    min-width: 24px;
+    font-size: 18px;
+  }
+
+  .dashboard-avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .chart-name {
+    font-size: 14px;
+  }
+
+  .champion-badge {
+    min-height: 22px;
+    padding: 4px 7px;
+    font-size: 11px;
+    white-space: normal;
+  }
+
+  .chart-track {
+    grid-column: 1 / -1;
+    height: 12px;
+  }
+
+  .chart-percent {
+    justify-self: end;
+    font-size: 15px;
   }
 
   .hero-card {
