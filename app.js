@@ -2988,13 +2988,16 @@ function renderProfile() {
 
   deadlineInput.value = participant.deadline || "";
   deadlineInput.disabled = !canEditDeadline;
-  deadlineInput.addEventListener("input", () => {
+  let deadlineCommitTimer = 0;
+  const clearDeadlineError = () => {
     deadlineInput.classList.remove("is-invalid");
     if (deadlineError) {
       deadlineError.hidden = true;
     }
-  });
-  deadlineInput.addEventListener("change", () => {
+  };
+  const commitDeadlineChange = () => {
+    window.clearTimeout(deadlineCommitTimer);
+    deadlineCommitTimer = 0;
     const nextDeadline = deadlineInput.value;
     if (nextDeadline === (participant.deadline || "")) return;
 
@@ -3007,16 +3010,21 @@ function renderProfile() {
         return;
       }
     }
-    deadlineInput.classList.remove("is-invalid");
-    if (deadlineError) {
-      deadlineError.hidden = true;
-    }
+    clearDeadlineError();
     updateDeadline(participant.id, nextDeadline);
-  });
+  };
+  const scheduleDeadlineCommit = () => {
+    window.clearTimeout(deadlineCommitTimer);
+    deadlineCommitTimer = window.setTimeout(commitDeadlineChange, 450);
+  };
+  deadlineInput.addEventListener("input", clearDeadlineError);
+  deadlineInput.addEventListener("change", scheduleDeadlineCommit);
+  deadlineInput.addEventListener("blur", commitDeadlineChange);
 
   taskForm.hidden = !editable;
   taskForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    commitDeadlineChange();
     if (participant.goal.trim() && !participant.deadline) {
       deadlineInput.classList.add("is-invalid");
       if (deadlineError) {
