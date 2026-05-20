@@ -214,7 +214,7 @@ closeAnnouncementButton.addEventListener("click", markAnnouncementRead);
 closeDeadlineWarningButton?.addEventListener("click", dismissDeadlineWarning);
 editDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation("edit"));
 closeDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation(false));
-cancelDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation(false));
+cancelDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation("edit"));
 confirmDeadlineButton?.addEventListener("click", () => resolveDeadlineConfirmation(true));
 window.addEventListener("resize", scheduleTourPositionUpdate);
 window.addEventListener("scroll", scheduleTourPositionUpdate, { passive: true });
@@ -3063,6 +3063,8 @@ function renderProfile() {
   deadlineInput.value = participant.deadline || "";
   deadlineInput.disabled = !canEditDeadline;
   let deadlineCommitTimer = 0;
+  let datePickerOpenedAt = 0;
+  let datePickerOpenedValue = deadlineInput.value;
   const clearDeadlineError = () => {
     deadlineInput.classList.remove("is-invalid");
     if (deadlineError) {
@@ -3099,8 +3101,22 @@ function renderProfile() {
       commitDeadlineChange();
     }, 450);
   };
+  const rememberDatePickerOpen = () => {
+    datePickerOpenedAt = Date.now();
+    datePickerOpenedValue = participant.deadline || "";
+  };
   deadlineInput.addEventListener("input", clearDeadlineError);
-  deadlineInput.addEventListener("change", scheduleDeadlineCommit);
+  deadlineInput.addEventListener("pointerdown", rememberDatePickerOpen);
+  deadlineInput.addEventListener("focus", rememberDatePickerOpen);
+  deadlineInput.addEventListener("change", () => {
+    const openedRecently = Date.now() - datePickerOpenedAt < 900;
+    const nativeOpenedWithToday =
+      !datePickerOpenedValue &&
+      deadlineInput.value === getTodayDateValue() &&
+      openedRecently;
+    if (nativeOpenedWithToday) return;
+    scheduleDeadlineCommit();
+  });
 
   taskForm.hidden = !editable;
   taskForm.addEventListener("submit", async (event) => {
@@ -3218,6 +3234,14 @@ function formatDate(dateValue) {
   const [year, month, day] = String(dateValue || "").split("-").map(Number);
   if (!year || !month || !day) return "без срока";
   return `${String(day).padStart(2, "0")}.${String(month).padStart(2, "0")}.${year}`;
+}
+
+function getTodayDateValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatCompletedDate(timestamp) {
