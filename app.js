@@ -1100,30 +1100,43 @@ function toSharedState(source, options = {}) {
 }
 
 async function fetchSharedState() {
-  let lastError = null;
-  let mergedState = null;
-
-  for (const url of SHARED_STATE_URLS) {
-    try {
-      const response = await fetch(url, {
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        lastError = new Error(`Shared state GET failed: ${response.status}`);
-        continue;
-      }
-
-      const nextState = normalizeState(await response.json());
-      mergedState = mergedState ? mergeSharedStates(mergedState, nextState) : nextState;
-    } catch (error) {
-      lastError = error;
+  const results = await Promise.allSettled(SHARED_STATE_URLS.map(async (url) => {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`Shared state GET failed: ${response.status}`);
     }
-  }
+    return normalizeState(await response.json());
+  }));
+
+  let mergedState = null;
+  let lastError = null;
+  results.forEach((result) => {
+    if (result.status === "rejected") {
+      lastError = result.reason;
+      return;
+    }
+    mergedState = mergedState ? mergeSharedStates(mergedState, result.value) : result.value;
+  });
 
   if (mergedState) return mergedState;
 
   throw lastError || new Error("Shared state unavailable");
+}
+
+async function fetchSharedStateWithTimeout(timeout = 2500) {
+  let timeoutId = 0;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("Shared state timeout")), timeout);
+  });
+
+  try {
+    return await Promise.race([fetchSharedState(), timeoutPromise]);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 async function saveSharedState(source, options = {}) {
@@ -1132,7 +1145,7 @@ async function saveSharedState(source, options = {}) {
   let saved = false;
   let lastError = null;
 
-  for (const url of SHARED_STATE_URLS) {
+  await Promise.allSettled(SHARED_STATE_URLS.map(async (url) => {
     try {
       const response = await fetch(url, {
         method: "PUT",
@@ -1143,14 +1156,13 @@ async function saveSharedState(source, options = {}) {
         body: JSON.stringify(sharedState),
       });
       if (!response.ok) {
-        lastError = new Error(`Shared state PUT failed: ${response.status}`);
-        continue;
+        throw new Error(`Shared state PUT failed: ${response.status}`);
       }
       saved = true;
     } catch (error) {
       lastError = error;
     }
-  }
+  }));
 
   if (!saved) {
     console.warn("Не удалось синхронизировать общую доску.", lastError);
@@ -1368,17 +1380,22 @@ async function joinAsParticipant(source = {}) {
     return;
   }
 
-  await syncStateBeforeParticipantLogin();
-
   let participant = state.participants.find(
     (person) => person.name.toLowerCase() === name.toLowerCase(),
   );
   const passwordHash = await hashPassword(name, password);
 
+  if (!participant || (!state.registrationPasswordHash && registrationKey)) {
+    await syncStateBeforeParticipantLogin();
+    participant = state.participants.find(
+      (person) => person.name.toLowerCase() === name.toLowerCase(),
+    );
+  }
+
   if (!participant) {
     if (state.registrationPasswordHash) {
       if (!registrationKey) {
-        showAuthMessage("Для регистрации нового участника введите пароль администратора.", true, messageElement);
+        showAuthMessage("Нужно знать пароль у администратора.", true, messageElement);
         participantRegistrationKeyInput?.focus();
         return;
       }
@@ -1435,6 +1452,7 @@ async function joinAsParticipant(source = {}) {
   if (!participant.onboardingCompleted) {
     openTour(participant.id);
   }
+  syncStateAfterParticipantLogin(participant.id);
 }
 
 function logoutParticipant() {
@@ -1454,7 +1472,7 @@ async function syncStateBeforeParticipantLogin() {
   if (SHARED_STATE_URLS.length === 0) return;
 
   try {
-    const freshState = await fetchSharedState();
+    const freshState = await fetchSharedStateWithTimeout();
     if (freshState.participants.length === 0 && state.participants.length > 0) return;
 
     const activeParticipantId = state.activeParticipantId;
@@ -1472,6 +1490,26 @@ async function syncStateBeforeParticipantLogin() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(state)));
   } catch {
     // Если сеть недоступна, пробуем вход по последней локальной копии.
+  }
+}
+
+async function syncStateAfterParticipantLogin(participantId) {
+  if (SHARED_STATE_URLS.length === 0) return;
+
+  try {
+    const freshState = await fetchSharedState();
+    const currentParticipant = findParticipant(participantId);
+    if (!currentParticipant) return;
+
+    const mergedState = mergeSharedStates(freshState, state);
+    state = mergedState;
+    state.activeParticipantId = participantId;
+    state.viewedParticipantId = participantId;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(state)));
+    render();
+    saveSharedState(state);
+  } catch {
+    // Вход уже выполнен локально; синхронизация повторится по таймеру.
   }
 }
 
