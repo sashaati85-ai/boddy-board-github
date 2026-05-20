@@ -1655,6 +1655,55 @@ body.is-dragging-card * {
   line-height: 1.5;
 }
 
+.deadline-confirm-card {
+  width: min(520px, 100%);
+  border: 1px solid rgba(38, 120, 196, 0.18);
+}
+
+.deadline-confirm-card h2 {
+  margin: 0 34px 12px 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.deadline-confirm-box {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  border: 1px solid #cfe4ff;
+  border-radius: 14px;
+  padding: 14px;
+  background: #f4f9ff;
+}
+
+.deadline-confirm-box span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.deadline-confirm-box strong {
+  color: var(--vk-blue-dark);
+  font-size: 28px;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.deadline-confirm-warning {
+  margin: 0;
+  color: var(--danger);
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.deadline-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .modal-close {
   position: absolute;
   top: 12px;

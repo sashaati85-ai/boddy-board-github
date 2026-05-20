@@ -234,6 +234,23 @@
       </section>
     </div>
 
+    <div id="deadlineConfirmModal" class="modal-layer" hidden>
+      <section class="modal-card deadline-confirm-card" role="dialog" aria-modal="true" aria-labelledby="deadlineConfirmTitle">
+        <button id="closeDeadlineConfirmButton" class="modal-close" type="button" aria-label="Закрыть">×</button>
+        <p class="deadline-warning-kicker" data-edit-key="deadlineConfirmKicker">Проверьте дату</p>
+        <h2 id="deadlineConfirmTitle" data-edit-key="deadlineConfirmTitle">Вы выбрали период</h2>
+        <div class="deadline-confirm-box">
+          <span data-edit-key="deadlineConfirmDateLabel">Дата цели</span>
+          <strong id="deadlineConfirmDate"></strong>
+        </div>
+        <p class="deadline-confirm-warning" data-edit-key="deadlineConfirmWarning">Если нажмёте «Да», изменить дату уже будет нельзя.</p>
+        <div class="deadline-confirm-actions">
+          <button id="cancelDeadlineConfirmButton" class="ghost-action" type="button" data-edit-key="deadlineConfirmCancel">Отмена</button>
+          <button id="confirmDeadlineButton" class="primary-action" type="button" data-edit-key="deadlineConfirmYes">Да</button>
+        </div>
+      </section>
+    </div>
+
     <template id="chartTemplate">
       <button class="chart-row" type="button">
         <span class="chart-person">

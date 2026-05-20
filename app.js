@@ -30,6 +30,7 @@ let textEditMode = false;
 let pendingSharedSaveCount = 0;
 let lastLocalWriteAt = 0;
 let scheduledSaveTimer = 0;
+let pendingDeadlineConfirmation = null;
 const LOCAL_WRITE_GRACE_MS = 3000;
 
 const openLoginButton = document.querySelector("#openLoginButton");
@@ -100,6 +101,11 @@ const announcementText = document.querySelector("#announcementText");
 const deadlineWarningModal = document.querySelector("#deadlineWarningModal");
 const closeDeadlineWarningButton = document.querySelector("#closeDeadlineWarningButton");
 const deadlineWarningText = document.querySelector("#deadlineWarningText");
+const deadlineConfirmModal = document.querySelector("#deadlineConfirmModal");
+const deadlineConfirmDate = document.querySelector("#deadlineConfirmDate");
+const closeDeadlineConfirmButton = document.querySelector("#closeDeadlineConfirmButton");
+const cancelDeadlineConfirmButton = document.querySelector("#cancelDeadlineConfirmButton");
+const confirmDeadlineButton = document.querySelector("#confirmDeadlineButton");
 const activeBadge = document.querySelector("#activeBadge");
 const brandLogo = document.querySelector("#brandLogo");
 const logoImageInput = document.querySelector("#logoImageInput");
@@ -152,6 +158,10 @@ document.querySelectorAll(".modal-layer").forEach((layer) => {
       dismissDeadlineWarning();
       return;
     }
+    if (layer === deadlineConfirmModal) {
+      resolveDeadlineConfirmation(false);
+      return;
+    }
     closeModals();
   });
 });
@@ -163,6 +173,10 @@ document.addEventListener("keydown", (event) => {
   }
   if (deadlineWarningModal && !deadlineWarningModal.hidden) {
     dismissDeadlineWarning();
+    return;
+  }
+  if (deadlineConfirmModal && !deadlineConfirmModal.hidden) {
+    resolveDeadlineConfirmation(false);
     return;
   }
   closeModals();
@@ -197,6 +211,9 @@ publishAnnouncementButton.addEventListener("click", publishAnnouncement);
 deleteAnnouncementButton.addEventListener("click", deleteAnnouncement);
 closeAnnouncementButton.addEventListener("click", markAnnouncementRead);
 closeDeadlineWarningButton?.addEventListener("click", dismissDeadlineWarning);
+closeDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation(false));
+cancelDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation(false));
+confirmDeadlineButton?.addEventListener("click", () => resolveDeadlineConfirmation(true));
 window.addEventListener("resize", scheduleTourPositionUpdate);
 window.addEventListener("scroll", scheduleTourPositionUpdate, { passive: true });
 window.addEventListener("focus", refreshSharedState);
@@ -1250,6 +1267,11 @@ function openModal(modal, focusTarget) {
 }
 
 function closeModals() {
+  if (pendingDeadlineConfirmation) {
+    const { resolve } = pendingDeadlineConfirmation;
+    pendingDeadlineConfirmation = null;
+    resolve(false);
+  }
   loginModal.hidden = true;
   adminModal.hidden = true;
   passwordResetModal.hidden = true;
@@ -1258,6 +1280,9 @@ function closeModals() {
   tourModal.hidden = true;
   if (deadlineWarningModal) {
     deadlineWarningModal.hidden = true;
+  }
+  if (deadlineConfirmModal) {
+    deadlineConfirmModal.hidden = true;
   }
   clearTourHighlight();
   cancelTourPositionUpdate();
@@ -1798,6 +1823,42 @@ function deleteAnnouncement() {
   showAdminMessage("Новость удалена у всех участников.", false);
   saveState();
   render();
+}
+
+function confirmDeadlineChoice(deadline) {
+  const dateText = formatDate(deadline);
+  if (!deadlineConfirmModal || !deadlineConfirmDate) {
+    return Promise.resolve(window.confirm(
+      `Вы выбрали дату: ${dateText}.\nЕсли нажмёте «Да», изменить дату уже будет нельзя.`,
+    ));
+  }
+
+  if (pendingDeadlineConfirmation) {
+    resolveDeadlineConfirmation(false);
+  }
+
+  closeModals();
+  deadlineConfirmDate.textContent = dateText;
+  deadlineConfirmModal.hidden = false;
+  requestAnimationFrame(() => confirmDeadlineButton?.focus());
+
+  return new Promise((resolve) => {
+    pendingDeadlineConfirmation = { resolve };
+  });
+}
+
+function resolveDeadlineConfirmation(confirmed) {
+  if (!pendingDeadlineConfirmation) {
+    if (deadlineConfirmModal) deadlineConfirmModal.hidden = true;
+    return;
+  }
+
+  const { resolve } = pendingDeadlineConfirmation;
+  pendingDeadlineConfirmation = null;
+  if (deadlineConfirmModal) {
+    deadlineConfirmModal.hidden = true;
+  }
+  resolve(Boolean(confirmed));
 }
 
 function dismissDeadlineWarning() {
@@ -2995,16 +3056,18 @@ function renderProfile() {
       deadlineError.hidden = true;
     }
   };
-  const commitDeadlineChange = () => {
+  let deadlineConfirmationInProgress = false;
+  const commitDeadlineChange = async () => {
     window.clearTimeout(deadlineCommitTimer);
     deadlineCommitTimer = 0;
     const nextDeadline = deadlineInput.value;
     if (nextDeadline === (participant.deadline || "")) return;
+    if (deadlineConfirmationInProgress) return;
 
     if (!state.isAdmin && nextDeadline) {
-      const confirmed = window.confirm(
-        "Вы точно хотите именно на этот период времени? Если нажмёте «Да», изменить уже будет нельзя.",
-      );
+      deadlineConfirmationInProgress = true;
+      const confirmed = await confirmDeadlineChoice(nextDeadline);
+      deadlineConfirmationInProgress = false;
       if (!confirmed) {
         deadlineInput.value = participant.deadline || "";
         return;
@@ -3015,16 +3078,18 @@ function renderProfile() {
   };
   const scheduleDeadlineCommit = () => {
     window.clearTimeout(deadlineCommitTimer);
-    deadlineCommitTimer = window.setTimeout(commitDeadlineChange, 450);
+    deadlineCommitTimer = window.setTimeout(() => {
+      commitDeadlineChange();
+    }, 450);
   };
   deadlineInput.addEventListener("input", clearDeadlineError);
   deadlineInput.addEventListener("change", scheduleDeadlineCommit);
   deadlineInput.addEventListener("blur", commitDeadlineChange);
 
   taskForm.hidden = !editable;
-  taskForm.addEventListener("submit", (event) => {
+  taskForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    commitDeadlineChange();
+    await commitDeadlineChange();
     if (participant.goal.trim() && !participant.deadline) {
       deadlineInput.classList.add("is-invalid");
       if (deadlineError) {
