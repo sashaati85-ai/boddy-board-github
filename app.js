@@ -2,6 +2,8 @@ const STORAGE_KEY = "boddy-board-v2";
 const SESSION_KEY = "boddy-board-session-v1";
 const LEGACY_KEYS = ["boddy-board-v1", "goal-board-v1"];
 const SHARED_STATE_URL = "https://boddy-board-github.vercel.app/api/state";
+const DIRECT_SHARED_STATE_URL = "https://jsonblob.com/api/jsonBlob/019e3f17-632d-7aa4-9568-7e06c3aaf372";
+const SHARED_STATE_URLS = createSharedStateUrls();
 const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 const PASSWORD_RESET_CODE = "Любовь";
@@ -273,6 +275,15 @@ function createDefaultSiteImages() {
   };
 }
 
+function createSharedStateUrls() {
+  const urls = [];
+  if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+    urls.push(`${window.location.origin}/api/state`);
+  }
+  urls.push(SHARED_STATE_URL, DIRECT_SHARED_STATE_URL);
+  return [...new Set(urls)];
+}
+
 async function initialize() {
   state = await loadState();
   restoreLocalSession();
@@ -290,21 +301,14 @@ async function initialize() {
 }
 
 async function refreshSharedState() {
-  if (!SHARED_STATE_URL) return;
+  if (SHARED_STATE_URLS.length === 0) return;
   if (pendingSharedSaveCount > 0 || Date.now() - lastLocalWriteAt < LOCAL_WRITE_GRACE_MS) return;
   if (isEditingParticipantContent()) return;
   if (loginModal && !loginModal.hidden) return;
   if (adminNewsModal && !adminNewsModal.hidden && document.activeElement === announcementInput) return;
 
   try {
-    const response = await fetch(SHARED_STATE_URL, {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
-
-    if (!response.ok) return;
-
-    const freshState = normalizeState(await response.json());
+    const freshState = await fetchSharedState();
     if (freshState.participants.length === 0 && state.participants.length > 0) {
       await saveSharedState(state);
       return;
@@ -351,17 +355,10 @@ async function refreshSharedState() {
 
 async function loadState() {
   const localState = loadLocalState();
-  if (!SHARED_STATE_URL) return localState;
+  if (SHARED_STATE_URLS.length === 0) return localState;
 
   try {
-    const response = await fetch(SHARED_STATE_URL, {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
-
-    if (!response.ok) throw new Error("Shared state unavailable");
-
-    const sharedState = normalizeState(await response.json());
+    const sharedState = await fetchSharedState();
     if (sharedState.participants.length === 0 && localState.participants.length > 0) {
       await saveSharedState(localState);
       return localState;
@@ -1098,20 +1095,59 @@ function toSharedState(source, options = {}) {
   };
 }
 
-async function saveSharedState(source, options = {}) {
-  if (!SHARED_STATE_URL) return;
+async function fetchSharedState() {
+  let lastError = null;
 
-  try {
-    await fetch(SHARED_STATE_URL, {
-      method: "PUT",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(toSharedState(source, options)),
-    });
-  } catch {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(source)));
+  for (const url of SHARED_STATE_URLS) {
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        lastError = new Error(`Shared state GET failed: ${response.status}`);
+        continue;
+      }
+
+      return normalizeState(await response.json());
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Shared state unavailable");
+}
+
+async function saveSharedState(source, options = {}) {
+  if (SHARED_STATE_URLS.length === 0) return;
+  const sharedState = toSharedState(source, options);
+  let saved = false;
+  let lastError = null;
+
+  for (const url of SHARED_STATE_URLS) {
+    try {
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(sharedState),
+      });
+      if (!response.ok) {
+        lastError = new Error(`Shared state PUT failed: ${response.status}`);
+        continue;
+      }
+      saved = true;
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (!saved) {
+    console.warn("Не удалось синхронизировать общую доску.", lastError);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
   }
 }
 
