@@ -1,15 +1,8 @@
 const STORAGE_KEY = "boddy-board-v2";
 const SESSION_KEY = "boddy-board-session-v1";
 const LEGACY_KEYS = ["boddy-board-v1", "goal-board-v1"];
-const SHARED_STATE_URL = "https://boddy-board-github.vercel.app/api/state";
-const VERCEL_SHARED_STATE_URLS = [
-  SHARED_STATE_URL,
-  "https://boddy-board-github-sashaati85-ai.vercel.app/api/state",
-  "https://boddy-board-github-git-main-sashaati85-ai.vercel.app/api/state",
-  "https://boddy-board-github-sashaati85-ais-projects.vercel.app/api/state",
-];
 const DIRECT_SHARED_STATE_URL = "https://jsonblob.com/api/jsonBlob/019e3f17-632d-7aa4-9568-7e06c3aaf372";
-const SHARED_STATE_URLS = createSharedStateUrls();
+const SHARED_STATE_URL = DIRECT_SHARED_STATE_URL;
 const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 const PASSWORD_RESET_CODE = "Любовь";
@@ -281,17 +274,6 @@ function createDefaultSiteImages() {
   };
 }
 
-function createSharedStateUrls() {
-  const urls = [];
-  const isHttp = window.location.protocol === "http:" || window.location.protocol === "https:";
-  const isGitHubPages = window.location.hostname.endsWith("github.io");
-  if (isHttp && !isGitHubPages) {
-    urls.push(`${window.location.origin}/api/state`);
-  }
-  urls.push(...VERCEL_SHARED_STATE_URLS, DIRECT_SHARED_STATE_URL);
-  return [...new Set(urls)];
-}
-
 async function initialize() {
   state = await loadState();
   restoreLocalSession();
@@ -309,7 +291,6 @@ async function initialize() {
 }
 
 async function refreshSharedState() {
-  if (SHARED_STATE_URLS.length === 0) return;
   if (pendingSharedSaveCount > 0 || Date.now() - lastLocalWriteAt < LOCAL_WRITE_GRACE_MS) return;
   if (isEditingParticipantContent()) return;
   if (loginModal && !loginModal.hidden) return;
@@ -363,7 +344,6 @@ async function refreshSharedState() {
 
 async function loadState() {
   const localState = loadLocalState();
-  if (SHARED_STATE_URLS.length === 0) return localState;
 
   try {
     const sharedState = await fetchSharedState();
@@ -1100,61 +1080,22 @@ function toSharedState(source, options = {}) {
 }
 
 async function fetchSharedState() {
-  return fetchMergedSharedState(SHARED_STATE_URLS);
-}
-
-async function fetchMergedSharedState(urls) {
-  const results = await Promise.allSettled(urls.map(async (url) => {
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      throw new Error(`Shared state GET failed: ${response.status}`);
-    }
-    return normalizeState(await response.json());
-  }));
-
-  let mergedState = null;
-  let lastError = null;
-  results.forEach((result) => {
-    if (result.status === "rejected") {
-      lastError = result.reason;
-      return;
-    }
-    mergedState = mergedState ? mergeSharedStates(mergedState, result.value) : result.value;
+  const response = await fetch(SHARED_STATE_URL, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
   });
-
-  if (mergedState) return mergedState;
-
-  throw lastError || new Error("Shared state unavailable");
+  if (!response.ok) {
+    throw new Error(`Shared state GET failed: ${response.status}`);
+  }
+  return normalizeState(await response.json());
 }
 
 async function fetchSharedStateWithTimeout(timeout = 2500) {
-  const results = await Promise.allSettled(
-    SHARED_STATE_URLS.map((url) => fetchSharedStateFromUrlWithTimeout(url, timeout)),
-  );
-  let mergedState = null;
-  let lastError = null;
-
-  results.forEach((result) => {
-    if (result.status === "rejected") {
-      lastError = result.reason;
-      return;
-    }
-    mergedState = mergedState ? mergeSharedStates(mergedState, result.value) : result.value;
-  });
-
-  if (mergedState) return mergedState;
-  throw lastError || new Error("Shared state unavailable");
-}
-
-async function fetchSharedStateFromUrlWithTimeout(url, timeout) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeout);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(SHARED_STATE_URL, {
       headers: { Accept: "application/json" },
       cache: "no-store",
       signal: controller.signal,
@@ -1169,32 +1110,22 @@ async function fetchSharedStateFromUrlWithTimeout(url, timeout) {
 }
 
 async function saveSharedState(source, options = {}) {
-  if (SHARED_STATE_URLS.length === 0) return;
   const sharedState = await prepareSharedStateForSave(source, options);
-  let saved = false;
-  let lastError = null;
 
-  await Promise.allSettled(SHARED_STATE_URLS.map(async (url) => {
-    try {
-      const response = await fetch(url, {
-        method: "PUT",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(sharedState),
-      });
-      if (!response.ok) {
-        throw new Error(`Shared state PUT failed: ${response.status}`);
-      }
-      saved = true;
-    } catch (error) {
-      lastError = error;
+  try {
+    const response = await fetch(SHARED_STATE_URL, {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(sharedState),
+    });
+    if (!response.ok) {
+      throw new Error(`Shared state PUT failed: ${response.status}`);
     }
-  }));
-
-  if (!saved) {
-    console.warn("Не удалось синхронизировать общую доску.", lastError);
+  } catch (error) {
+    console.warn("Не удалось синхронизировать общую доску.", error);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
   }
 }
@@ -1203,7 +1134,7 @@ async function prepareSharedStateForSave(source, options = {}) {
   const incomingState = normalizeState(toSharedState(source, options));
 
   try {
-    const remoteState = await fetchSharedState();
+    const remoteState = await fetchSharedStateWithTimeout();
     return toSharedState(mergeSharedStates(remoteState, incomingState, options), options);
   } catch {
     return toSharedState(incomingState, options);
@@ -1507,8 +1438,6 @@ function showAuthMessage(message, isError, target = authMessage) {
 }
 
 async function syncStateBeforeParticipantLogin() {
-  if (SHARED_STATE_URLS.length === 0) return;
-
   try {
     const freshState = await fetchSharedStateWithTimeout();
     if (freshState.participants.length === 0 && state.participants.length > 0) return;
@@ -1532,8 +1461,6 @@ async function syncStateBeforeParticipantLogin() {
 }
 
 async function syncStateAfterParticipantLogin(participantId) {
-  if (SHARED_STATE_URLS.length === 0) return;
-
   try {
     const freshState = await fetchSharedState();
     const currentParticipant = findParticipant(participantId);
