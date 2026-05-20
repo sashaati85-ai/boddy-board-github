@@ -302,11 +302,6 @@ async function refreshSharedState() {
       return;
     }
 
-    if (shouldKeepLocalActiveParticipant(state, freshState)) {
-      await saveSharedState(state);
-      return;
-    }
-
     const previousSharedState = JSON.stringify(toSharedState(state));
     const nextSharedState = JSON.stringify(toSharedState(freshState));
     if (previousSharedState === nextSharedState) return;
@@ -1123,9 +1118,11 @@ async function saveSharedState(source, options = {}) {
     if (!response.ok) {
       throw new Error(`Shared state PUT failed: ${response.status}`);
     }
+    return true;
   } catch (error) {
     console.warn("Не удалось синхронизировать общую доску.", error);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
+    return false;
   }
 }
 
@@ -2402,7 +2399,7 @@ function deleteTask(participantId, taskId) {
   render();
 }
 
-function deleteAccount(participantId) {
+async function deleteAccount(participantId) {
   const participant = findParticipant(participantId);
   if (!participant || !state.isAdmin) return;
 
@@ -2429,9 +2426,14 @@ function deleteAccount(participantId) {
   state.viewedParticipantId = state.participants[0]?.id || "";
   const sharedState = toSharedState(state, { allowEmptyParticipants: true });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
-  saveSharedState(state, { allowEmptyParticipants: true });
-  showAdminMessage("Участник удалён.", false);
   render();
+  const saved = await saveSharedState(state, { allowEmptyParticipants: true });
+  if (!saved) {
+    showAdminMessage("Не удалось синхронизировать удаление. Проверьте интернет и попробуйте ещё раз.", true);
+    return;
+  }
+  await refreshSharedState();
+  showAdminMessage("Участник удалён на всех устройствах.", false);
 }
 
 function findParticipant(id) {
