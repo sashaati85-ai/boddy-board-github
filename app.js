@@ -556,13 +556,22 @@ function normalizeAnnouncement(announcement) {
 
 function normalizeAnnouncementRecipient(recipient) {
   if (!recipient || typeof recipient !== "object") {
-    return { type: "all", participantId: "" };
+    return { type: "all", participantId: "", participantIds: [] };
   }
 
-  const type = recipient.type === "participant" ? "participant" : "all";
+  const participantIds = Array.isArray(recipient.participantIds)
+    ? [...new Set(recipient.participantIds.map((id) => String(id)).filter(Boolean))]
+    : [];
+  const hasMultipleRecipients = recipient.type === "participants" || participantIds.length > 1;
+  const type = hasMultipleRecipients
+    ? "participants"
+    : recipient.type === "participant"
+      ? "participant"
+      : "all";
   return {
     type,
     participantId: type === "participant" ? String(recipient.participantId || "") : "",
+    participantIds: type === "participants" ? participantIds : [],
   };
 }
 
@@ -1557,6 +1566,13 @@ function getNewestAnnouncement(baseState, nextState) {
   );
   const baseTime = getAnnouncementUpdatedAt(baseAnnouncement);
   const nextTime = getAnnouncementUpdatedAt(nextAnnouncement);
+  if (baseAnnouncement?.id && baseAnnouncement.id === nextAnnouncement?.id) {
+    const preferredAnnouncement = nextTime >= baseTime ? nextAnnouncement : baseAnnouncement;
+    return {
+      ...preferredAnnouncement,
+      readBy: mergeAnnouncementReadBy(baseAnnouncement, nextAnnouncement),
+    };
+  }
   const newestAnnouncement = nextTime >= baseTime ? nextAnnouncement : baseAnnouncement;
 
   if (deletedAt >= getAnnouncementUpdatedAt(newestAnnouncement)) {
@@ -1568,6 +1584,15 @@ function getNewestAnnouncement(baseState, nextState) {
 function getAnnouncementUpdatedAt(announcement) {
   if (!announcement) return 0;
   return Number(announcement.updatedAt || announcement.createdAt || 0);
+}
+
+function mergeAnnouncementReadBy(baseAnnouncement, nextAnnouncement) {
+  return [
+    ...new Set([
+      ...(Array.isArray(baseAnnouncement?.readBy) ? baseAnnouncement.readBy : []),
+      ...(Array.isArray(nextAnnouncement?.readBy) ? nextAnnouncement.readBy : []),
+    ]),
+  ];
 }
 
 function isEditingParticipantContent() {
@@ -2126,9 +2151,8 @@ function showAnnouncementMessage(message, isError) {
 function publishAnnouncement() {
   const text = announcementInput.value.trim();
   if (!state.isAdmin) return;
-  const recipientValue = announcementRecipientSelect?.value || "all";
-  const isPersonalRecipient = recipientValue.startsWith("participant:");
-  const participantId = isPersonalRecipient ? recipientValue.replace("participant:", "") : "";
+  const recipient = getSelectedAnnouncementRecipient();
+  const targetParticipants = getAnnouncementTargetParticipants({ recipient });
 
   if (!text) {
     showAnnouncementMessage("Напишите текст новости.", true);
@@ -2136,9 +2160,9 @@ function publishAnnouncement() {
     return;
   }
 
-  if (isPersonalRecipient && !findParticipant(participantId)) {
-    showAnnouncementMessage("Выберите участника для личной новости.", true);
-    announcementRecipientSelect?.focus();
+  if (targetParticipants.length === 0) {
+    showAnnouncementMessage("Выберите хотя бы одного участника.", true);
+    announcementRecipientSelect?.querySelector("input")?.focus();
     return;
   }
 
@@ -2148,18 +2172,14 @@ function publishAnnouncement() {
     text,
     createdAt: now,
     updatedAt: now,
-    recipient: {
-      type: isPersonalRecipient ? "participant" : "all",
-      participantId,
-    },
+    recipient,
     readBy: [],
   };
   state.announcementDeletedAt = 0;
   announcementInput.value = "";
   showAnnouncementMessage("", false);
-  showAdminMessage(isPersonalRecipient ? "Новость отправлена выбранному участнику." : "Новость опубликована для всех участников.", false);
+  showAdminMessage(`Новость отправлена: ${formatRecipientSummary(targetParticipants)}.`, false);
   saveState();
-  closeModals();
   render();
 }
 
@@ -2251,7 +2271,6 @@ function markAnnouncementRead() {
 
   if (!state.announcement.readBy.includes(active.id)) {
     state.announcement.readBy.push(active.id);
-    state.announcement.updatedAt = Date.now();
     saveState();
   }
 
@@ -3329,6 +3348,12 @@ function renderAnnouncementAdminPanel() {
     return;
   }
 
+  const readCount = targetParticipants.filter((participant) => state.announcement?.readBy?.includes(participant.id)).length;
+  const summary = document.createElement("div");
+  summary.className = "announcement-read-summary";
+  summary.textContent = `Статус отправки: отправлено ${targetParticipants.length}. Прочитано ${readCount} из ${targetParticipants.length}.`;
+  announcementReadList.append(summary);
+
   targetParticipants.forEach((participant) => {
     const row = document.createElement("div");
     const name = document.createElement("span");
@@ -3337,7 +3362,7 @@ function renderAnnouncementAdminPanel() {
     const hasRead = Boolean(state.announcement?.readBy?.includes(participant.id));
     row.classList.toggle("has-read", hasRead);
     name.textContent = participant.name;
-    status.textContent = hasRead ? "✓ Прочитал" : "Ждём";
+    status.textContent = hasRead ? "✓ Прочитано" : "✓ Отправлено";
     row.append(name, status);
     announcementReadList.append(row);
   });
@@ -3346,33 +3371,100 @@ function renderAnnouncementAdminPanel() {
 function renderAnnouncementRecipientOptions() {
   if (!announcementRecipientSelect) return;
 
-  const selectedValue = announcementRecipientSelect.value || getAnnouncementRecipientValue(state.announcement);
+  const selectedRecipient = getCurrentAnnouncementRecipientSelection();
   announcementRecipientSelect.replaceChildren();
 
-  const allOption = document.createElement("option");
-  allOption.value = "all";
-  allOption.textContent = "Все пользователи";
-  announcementRecipientSelect.append(allOption);
+  const allLabel = createAnnouncementRecipientCheckbox({
+    id: "all",
+    label: "Все участники",
+    checked: selectedRecipient.type === "all",
+    isAll: true,
+  });
+  announcementRecipientSelect.append(allLabel);
 
   state.participants.forEach((participant) => {
-    const option = document.createElement("option");
-    option.value = `participant:${participant.id}`;
-    option.textContent = participant.name;
-    announcementRecipientSelect.append(option);
+    announcementRecipientSelect.append(createAnnouncementRecipientCheckbox({
+      id: participant.id,
+      label: participant.name,
+      checked:
+        selectedRecipient.type === "participants" &&
+        selectedRecipient.participantIds.includes(participant.id),
+      isAll: false,
+    }));
   });
-
-  announcementRecipientSelect.value = [...announcementRecipientSelect.options].some(
-    (option) => option.value === selectedValue,
-  )
-    ? selectedValue
-    : "all";
 }
 
-function getAnnouncementRecipientValue(announcement) {
-  const recipient = normalizeAnnouncementRecipient(announcement?.recipient);
-  return recipient.type === "participant" && recipient.participantId
-    ? `participant:${recipient.participantId}`
-    : "all";
+function createAnnouncementRecipientCheckbox({ id, label, checked, isAll }) {
+  const item = document.createElement("label");
+  const checkbox = document.createElement("input");
+  const text = document.createElement("span");
+  item.className = "announcement-recipient-option";
+  checkbox.type = "checkbox";
+  checkbox.checked = checked;
+  if (isAll) {
+    checkbox.dataset.recipientAll = "true";
+  } else {
+    checkbox.dataset.participantId = id;
+  }
+  text.textContent = label;
+  checkbox.addEventListener("change", () => handleAnnouncementRecipientChange(checkbox));
+  item.append(checkbox, text);
+  return item;
+}
+
+function handleAnnouncementRecipientChange(changedCheckbox) {
+  if (!announcementRecipientSelect) return;
+  const allCheckbox = announcementRecipientSelect.querySelector("[data-recipient-all]");
+  const participantCheckboxes = [...announcementRecipientSelect.querySelectorAll("[data-participant-id]")];
+
+  if (changedCheckbox?.dataset.recipientAll === "true" && changedCheckbox.checked) {
+    participantCheckboxes.forEach((checkbox) => {
+      checkbox.checked = false;
+    });
+    return;
+  }
+
+  if (participantCheckboxes.some((checkbox) => checkbox.checked)) {
+    if (allCheckbox) allCheckbox.checked = false;
+    return;
+  }
+
+  if (allCheckbox) allCheckbox.checked = true;
+}
+
+function getCurrentAnnouncementRecipientSelection() {
+  if (!announcementRecipientSelect) {
+    return normalizeAnnouncementRecipient(state.announcement?.recipient);
+  }
+  const checkedParticipants = [...announcementRecipientSelect.querySelectorAll("[data-participant-id]:checked")]
+    .map((checkbox) => checkbox.dataset.participantId)
+    .filter(Boolean);
+  const allChecked = Boolean(announcementRecipientSelect.querySelector("[data-recipient-all]:checked"));
+  if (checkedParticipants.length > 0) {
+    return { type: "participants", participantId: "", participantIds: checkedParticipants };
+  }
+  if (allChecked) {
+    return { type: "all", participantId: "", participantIds: [] };
+  }
+  return normalizeAnnouncementRecipient(state.announcement?.recipient);
+}
+
+function getSelectedAnnouncementRecipient() {
+  if (!announcementRecipientSelect) {
+    return { type: "all", participantId: "", participantIds: [] };
+  }
+  const participantIds = [...announcementRecipientSelect.querySelectorAll("[data-participant-id]:checked")]
+    .map((checkbox) => checkbox.dataset.participantId)
+    .filter((id) => Boolean(id && findParticipant(id)));
+  const isAll = Boolean(announcementRecipientSelect.querySelector("[data-recipient-all]:checked"));
+  if (isAll) {
+    return { type: "all", participantId: "", participantIds: [] };
+  }
+  return {
+    type: "participants",
+    participantId: "",
+    participantIds: [...new Set(participantIds)],
+  };
 }
 
 function getAnnouncementTargetParticipants(announcement) {
@@ -3380,8 +3472,18 @@ function getAnnouncementTargetParticipants(announcement) {
   if (recipient.type === "participant") {
     return state.participants.filter((participant) => participant.id === recipient.participantId);
   }
+  if (recipient.type === "participants") {
+    const recipientIds = new Set(recipient.participantIds);
+    return state.participants.filter((participant) => recipientIds.has(participant.id));
+  }
 
   return state.participants;
+}
+
+function formatRecipientSummary(participants) {
+  if (participants.length === state.participants.length) return "всем участникам";
+  if (participants.length <= 3) return participants.map((participant) => participant.name).join(", ");
+  return `${participants.slice(0, 3).map((participant) => participant.name).join(", ")} и ещё ${participants.length - 3}`;
 }
 
 function shouldShowAnnouncementToParticipant(participant) {
@@ -3390,6 +3492,7 @@ function shouldShowAnnouncementToParticipant(participant) {
 
   const recipient = normalizeAnnouncementRecipient(state.announcement.recipient);
   if (recipient.type === "participant" && recipient.participantId !== participant.id) return false;
+  if (recipient.type === "participants" && !recipient.participantIds.includes(participant.id)) return false;
   if (recipient.type === "all" && !participant.onboardingCompleted) return false;
 
   return true;

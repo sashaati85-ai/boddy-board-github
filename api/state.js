@@ -126,7 +126,28 @@ function normalizeAnnouncement(announcement) {
     text: String(announcement.text || "").trim(),
     createdAt: announcement.createdAt || Date.now(),
     updatedAt: announcement.updatedAt || announcement.createdAt || Date.now(),
+    recipient: normalizeAnnouncementRecipient(announcement.recipient),
     readBy: Array.isArray(announcement.readBy) ? announcement.readBy : [],
+  };
+}
+
+function normalizeAnnouncementRecipient(recipient) {
+  if (!recipient || typeof recipient !== "object") {
+    return { type: "all", participantId: "", participantIds: [] };
+  }
+  const participantIds = Array.isArray(recipient.participantIds)
+    ? [...new Set(recipient.participantIds.map((id) => String(id)).filter(Boolean))]
+    : [];
+  const hasMultipleRecipients = recipient.type === "participants" || participantIds.length > 1;
+  const type = hasMultipleRecipients
+    ? "participants"
+    : recipient.type === "participant"
+      ? "participant"
+      : "all";
+  return {
+    type,
+    participantId: type === "participant" ? String(recipient.participantId || "") : "",
+    participantIds: type === "participants" ? participantIds : [],
   };
 }
 
@@ -139,6 +160,13 @@ function chooseAnnouncement(currentData, incomingData) {
   const incomingAnnouncement = incomingData.announcement || null;
   const currentTime = getAnnouncementUpdatedAt(currentAnnouncement);
   const incomingTime = getAnnouncementUpdatedAt(incomingAnnouncement);
+  if (currentAnnouncement?.id && currentAnnouncement.id === incomingAnnouncement?.id) {
+    const preferredAnnouncement = incomingTime >= currentTime ? incomingAnnouncement : currentAnnouncement;
+    return {
+      ...preferredAnnouncement,
+      readBy: mergeAnnouncementReadBy(currentAnnouncement, incomingAnnouncement),
+    };
+  }
   const newestAnnouncement = incomingTime >= currentTime ? incomingAnnouncement : currentAnnouncement;
 
   if (deletedAt >= getAnnouncementUpdatedAt(newestAnnouncement)) {
@@ -150,6 +178,15 @@ function chooseAnnouncement(currentData, incomingData) {
 function getAnnouncementUpdatedAt(announcement) {
   if (!announcement) return 0;
   return Number(announcement.updatedAt || announcement.createdAt || 0);
+}
+
+function mergeAnnouncementReadBy(currentAnnouncement, incomingAnnouncement) {
+  return [
+    ...new Set([
+      ...(Array.isArray(currentAnnouncement?.readBy) ? currentAnnouncement.readBy : []),
+      ...(Array.isArray(incomingAnnouncement?.readBy) ? incomingAnnouncement.readBy : []),
+    ]),
+  ];
 }
 
 function mergeParticipants(currentParticipants = [], incomingParticipants = [], deletedIds = new Set()) {
