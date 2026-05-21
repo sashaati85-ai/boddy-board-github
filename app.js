@@ -3428,13 +3428,7 @@ function renderResults() {
     chartEmpty.textContent = "Пока нет участников. Создайте первый аккаунт через кнопку «Войти».";
     resultChart.append(chartEmpty);
 
-    const row = document.createElement("tr");
-    const cell = document.createElement("td");
-    cell.colSpan = state.isAdmin ? 6 : 5;
-    cell.className = "table-empty";
-    cell.textContent = "Здесь появятся участники, их цели и текущий прогресс.";
-    row.append(cell);
-    resultTable.append(row);
+    renderEmptyResultsTable("Здесь появятся участники, их цели и текущий прогресс.");
     return;
   }
 
@@ -3462,10 +3456,33 @@ function renderResults() {
     });
   }
 
-  rankedParticipants.forEach((participant) => {
+  const tableParticipants = rankedParticipants.filter(shouldShowInResultsTable);
+  if (tableParticipants.length === 0) {
+    renderEmptyResultsTable("Здесь появятся участники, которые указали цель и дату.");
+    return;
+  }
+
+  tableParticipants.forEach((participant) => {
     const progress = getDashboardProgress(participant);
     renderTableRow(participant, progress);
   });
+}
+
+function shouldShowInResultsTable(participant) {
+  return Boolean(
+    getActiveCompletedGoalNotice(participant) ||
+      (participant.goal?.trim() && participant.deadline),
+  );
+}
+
+function renderEmptyResultsTable(message) {
+  const row = document.createElement("tr");
+  const cell = document.createElement("td");
+  cell.colSpan = state.isAdmin ? 6 : 5;
+  cell.className = "table-empty";
+  cell.textContent = message;
+  row.append(cell);
+  resultTable.append(row);
 }
 
 function hasLeaderboardActivity(participant) {
