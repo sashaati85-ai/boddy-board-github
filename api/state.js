@@ -2,6 +2,7 @@ const STORE_URL = "https://jsonblob.com/api/jsonBlob/019e46e2-c1d5-7c5b-bd04-d97
 
 function normalizeSharedState(value) {
   const source = value && typeof value === "object" ? value : {};
+  const announcements = normalizeAnnouncementList(source);
 
   return {
     participants: Array.isArray(source.participants)
@@ -13,8 +14,12 @@ function normalizeSharedState(value) {
     siteImages: normalizeSiteImages(source.siteImages),
     uiText: normalizeEditableMap(source.uiText),
     uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
-    announcement: normalizeAnnouncement(source.announcement),
+    announcements,
+    announcement: announcements[0] || null,
     announcementDeletedAt: Number(source.announcementDeletedAt || 0),
+    deletedAnnouncementIds: Array.isArray(source.deletedAnnouncementIds)
+      ? source.deletedAnnouncementIds.map((id) => String(id)).filter(Boolean)
+      : [],
     deletedParticipantIds: Array.isArray(source.deletedParticipantIds)
       ? source.deletedParticipantIds
       : [],
@@ -63,7 +68,7 @@ module.exports = async function handler(request, response) {
     });
     const currentData = currentResponse.ok
       ? normalizeSharedState(await currentResponse.json())
-      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), uiText: {}, uiPlaceholders: {}, announcement: null, announcementDeletedAt: 0, deletedParticipantIds: [] };
+      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), uiText: {}, uiPlaceholders: {}, announcements: [], announcement: null, announcementDeletedAt: 0, deletedAnnouncementIds: [], deletedParticipantIds: [] };
     const deletedIds = new Set([
       ...currentData.deletedParticipantIds,
       ...data.deletedParticipantIds,
@@ -80,8 +85,15 @@ module.exports = async function handler(request, response) {
     };
     data.uiText = { ...currentData.uiText, ...data.uiText };
     data.uiPlaceholders = { ...currentData.uiPlaceholders, ...data.uiPlaceholders };
-    data.announcement = chooseAnnouncement(currentData, data);
+    data.deletedAnnouncementIds = [
+      ...new Set([
+        ...(currentData.deletedAnnouncementIds || []),
+        ...(data.deletedAnnouncementIds || []),
+      ]),
+    ];
     data.announcementDeletedAt = Math.max(currentData.announcementDeletedAt || 0, data.announcementDeletedAt || 0);
+    data.announcements = mergeAnnouncements(currentData, data, data.deletedAnnouncementIds, data.announcementDeletedAt);
+    data.announcement = data.announcements[0] || null;
     data.deletedParticipantIds = [...deletedIds];
     data.participants = mergeParticipants(currentData.participants, data.participants, deletedIds);
 
@@ -127,8 +139,48 @@ function normalizeAnnouncement(announcement) {
     createdAt: announcement.createdAt || Date.now(),
     updatedAt: announcement.updatedAt || announcement.createdAt || Date.now(),
     recipient: normalizeAnnouncementRecipient(announcement.recipient),
-    readBy: Array.isArray(announcement.readBy) ? announcement.readBy : [],
+    readBy: Array.isArray(announcement.readBy)
+      ? [...new Set(announcement.readBy.map((id) => String(id)).filter(Boolean))]
+      : [],
   };
+}
+
+function normalizeAnnouncementList(source = {}) {
+  const rawAnnouncements = Array.isArray(source.announcements) ? source.announcements : [];
+  const legacyAnnouncement = source.announcement ? [source.announcement] : [];
+  const deletedIds = new Set(
+    Array.isArray(source.deletedAnnouncementIds)
+      ? source.deletedAnnouncementIds.map((id) => String(id)).filter(Boolean)
+      : [],
+  );
+  const deletedAt = Number(source.announcementDeletedAt || 0);
+  const announcementsById = new Map();
+
+  [...rawAnnouncements, ...legacyAnnouncement].forEach((item) => {
+    const announcement = normalizeAnnouncement(item);
+    if (!announcement?.text || deletedIds.has(announcement.id)) return;
+    if (deletedAt && deletedAt >= getAnnouncementUpdatedAt(announcement)) return;
+
+    const existing = announcementsById.get(announcement.id);
+    if (!existing) {
+      announcementsById.set(announcement.id, announcement);
+      return;
+    }
+
+    const preferred = getAnnouncementUpdatedAt(announcement) >= getAnnouncementUpdatedAt(existing)
+      ? announcement
+      : existing;
+    announcementsById.set(announcement.id, {
+      ...preferred,
+      readBy: mergeAnnouncementReadBy(existing, announcement),
+    });
+  });
+
+  return [...announcementsById.values()].sort((first, second) => {
+    const timeDiff = Number(second.createdAt || second.updatedAt || 0) - Number(first.createdAt || first.updatedAt || 0);
+    if (timeDiff !== 0) return timeDiff;
+    return String(second.id).localeCompare(String(first.id));
+  });
 }
 
 function normalizeAnnouncementRecipient(recipient) {
@@ -151,28 +203,34 @@ function normalizeAnnouncementRecipient(recipient) {
   };
 }
 
-function chooseAnnouncement(currentData, incomingData) {
-  const deletedAt = Math.max(
-    Number(currentData.announcementDeletedAt || 0),
-    Number(incomingData.announcementDeletedAt || 0),
-  );
-  const currentAnnouncement = currentData.announcement || null;
-  const incomingAnnouncement = incomingData.announcement || null;
-  const currentTime = getAnnouncementUpdatedAt(currentAnnouncement);
-  const incomingTime = getAnnouncementUpdatedAt(incomingAnnouncement);
-  if (currentAnnouncement?.id && currentAnnouncement.id === incomingAnnouncement?.id) {
-    const preferredAnnouncement = incomingTime >= currentTime ? incomingAnnouncement : currentAnnouncement;
-    return {
-      ...preferredAnnouncement,
-      readBy: mergeAnnouncementReadBy(currentAnnouncement, incomingAnnouncement),
-    };
-  }
-  const newestAnnouncement = incomingTime >= currentTime ? incomingAnnouncement : currentAnnouncement;
+function mergeAnnouncements(currentData, incomingData, deletedIds = [], deletedAt = 0) {
+  const deletedSet = new Set(deletedIds);
+  const announcementsById = new Map();
 
-  if (deletedAt >= getAnnouncementUpdatedAt(newestAnnouncement)) {
-    return null;
-  }
-  return newestAnnouncement;
+  [...normalizeAnnouncementList(currentData), ...normalizeAnnouncementList(incomingData)].forEach((announcement) => {
+    if (!announcement?.id || deletedSet.has(announcement.id)) return;
+    if (deletedAt && deletedAt >= getAnnouncementUpdatedAt(announcement)) return;
+
+    const existing = announcementsById.get(announcement.id);
+    if (!existing) {
+      announcementsById.set(announcement.id, announcement);
+      return;
+    }
+
+    const preferred = getAnnouncementUpdatedAt(announcement) >= getAnnouncementUpdatedAt(existing)
+      ? announcement
+      : existing;
+    announcementsById.set(announcement.id, {
+      ...preferred,
+      readBy: mergeAnnouncementReadBy(existing, announcement),
+    });
+  });
+
+  return [...announcementsById.values()].sort((first, second) => {
+    const timeDiff = Number(second.createdAt || second.updatedAt || 0) - Number(first.createdAt || first.updatedAt || 0);
+    if (timeDiff !== 0) return timeDiff;
+    return String(second.id).localeCompare(String(first.id));
+  });
 }
 
 function getAnnouncementUpdatedAt(announcement) {

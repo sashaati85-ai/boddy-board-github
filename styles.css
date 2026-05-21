@@ -1925,6 +1925,59 @@ body.is-dragging-card * {
   font-weight: 900;
 }
 
+.announcement-history-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(39, 88, 118, 0.11);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 30px rgba(37, 67, 92, 0.08);
+}
+
+.announcement-history-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.announcement-history-text {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.announcement-history-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.announcement-target-list {
+  display: grid;
+  gap: 7px;
+}
+
+.announcement-delete-one {
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(202, 67, 67, 0.1);
+  color: #b33c3c;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.announcement-delete-one:hover {
+  background: rgba(202, 67, 67, 0.16);
+}
+
 .read-person {
   display: flex;
   align-items: center;

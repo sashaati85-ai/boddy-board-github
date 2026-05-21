@@ -263,7 +263,7 @@ saveRegistrationPasswordButton?.addEventListener("click", saveRegistrationPasswo
 clearRegistrationPasswordButton?.addEventListener("click", clearRegistrationPassword);
 adminLogoutButton.addEventListener("click", logoutAdmin);
 publishAnnouncementButton.addEventListener("click", publishAnnouncement);
-deleteAnnouncementButton.addEventListener("click", deleteAnnouncement);
+deleteAnnouncementButton.addEventListener("click", () => deleteAnnouncement());
 closeAnnouncementButton.addEventListener("click", markAnnouncementRead);
 closeDeadlineWarningButton?.addEventListener("click", dismissDeadlineWarning);
 editDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation("edit"));
@@ -519,6 +519,7 @@ function normalizeState(candidate) {
   }));
   participants.forEach(normalizeParticipantTasks);
   participants.forEach(normalizeParticipantStatus);
+  const announcements = normalizeAnnouncementList(candidate);
 
   return {
     activeParticipantId: "",
@@ -529,8 +530,12 @@ function normalizeState(candidate) {
     siteImages: normalizeSiteImages(candidate.siteImages),
     uiText: normalizeEditableMap(candidate.uiText),
     uiPlaceholders: normalizeEditableMap(candidate.uiPlaceholders),
-    announcement: normalizeAnnouncement(candidate.announcement),
+    announcements,
+    announcement: announcements[0] || null,
     announcementDeletedAt: Number(candidate.announcementDeletedAt || 0),
+    deletedAnnouncementIds: Array.isArray(candidate.deletedAnnouncementIds)
+      ? candidate.deletedAnnouncementIds.map((id) => String(id)).filter(Boolean)
+      : [],
     deletedParticipantIds: Array.isArray(candidate.deletedParticipantIds)
       ? candidate.deletedParticipantIds
       : [],
@@ -550,8 +555,48 @@ function normalizeAnnouncement(announcement) {
     createdAt: announcement.createdAt || Date.now(),
     updatedAt: announcement.updatedAt || announcement.createdAt || Date.now(),
     recipient: normalizeAnnouncementRecipient(announcement.recipient),
-    readBy: Array.isArray(announcement.readBy) ? announcement.readBy : [],
+    readBy: Array.isArray(announcement.readBy)
+      ? [...new Set(announcement.readBy.map((id) => String(id)).filter(Boolean))]
+      : [],
   };
+}
+
+function normalizeAnnouncementList(source = {}) {
+  const rawAnnouncements = Array.isArray(source.announcements) ? source.announcements : [];
+  const legacyAnnouncement = source.announcement ? [source.announcement] : [];
+  const deletedIds = new Set(
+    Array.isArray(source.deletedAnnouncementIds)
+      ? source.deletedAnnouncementIds.map((id) => String(id)).filter(Boolean)
+      : [],
+  );
+  const deletedAt = Number(source.announcementDeletedAt || 0);
+  const announcementsById = new Map();
+
+  [...rawAnnouncements, ...legacyAnnouncement].forEach((item) => {
+    const announcement = normalizeAnnouncement(item);
+    if (!announcement?.text || deletedIds.has(announcement.id)) return;
+    if (deletedAt && deletedAt >= getAnnouncementUpdatedAt(announcement)) return;
+
+    const existing = announcementsById.get(announcement.id);
+    if (!existing) {
+      announcementsById.set(announcement.id, announcement);
+      return;
+    }
+
+    const preferred = getAnnouncementUpdatedAt(announcement) >= getAnnouncementUpdatedAt(existing)
+      ? announcement
+      : existing;
+    announcementsById.set(announcement.id, {
+      ...preferred,
+      readBy: mergeAnnouncementReadBy(existing, announcement),
+    });
+  });
+
+  return [...announcementsById.values()].sort((first, second) => {
+    const timeDiff = Number(second.createdAt || second.updatedAt || 0) - Number(first.createdAt || first.updatedAt || 0);
+    if (timeDiff !== 0) return timeDiff;
+    return String(second.id).localeCompare(String(first.id));
+  });
 }
 
 function normalizeAnnouncementRecipient(recipient) {
@@ -662,7 +707,10 @@ function migrateLegacyState() {
       siteImages: createDefaultSiteImages(),
       uiText: {},
       uiPlaceholders: {},
+      announcements: [],
       announcement: null,
+      announcementDeletedAt: 0,
+      deletedAnnouncementIds: [],
       deletedParticipantIds: [],
       isAdmin: false,
       participants: [participant],
@@ -682,8 +730,10 @@ function createInitialState() {
     siteImages: createDefaultSiteImages(),
     uiText: {},
     uiPlaceholders: {},
+    announcements: [],
     announcement: null,
     announcementDeletedAt: 0,
+    deletedAnnouncementIds: [],
     deletedParticipantIds: [],
     isAdmin: false,
     participants: [],
@@ -1168,6 +1218,7 @@ function placeTourCard(target, placement) {
 }
 
 function toSharedState(source, options = {}) {
+  const announcements = normalizeAnnouncementList(source);
   return {
     participants: source.participants,
     adminPasswordHashV2: source.adminPasswordHash,
@@ -1176,8 +1227,10 @@ function toSharedState(source, options = {}) {
     siteImages: normalizeSiteImages(source.siteImages),
     uiText: normalizeEditableMap(source.uiText),
     uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
-    announcement: source.announcement,
+    announcements,
+    announcement: announcements[0] || null,
     announcementDeletedAt: Number(source.announcementDeletedAt || 0),
+    deletedAnnouncementIds: Array.isArray(source.deletedAnnouncementIds) ? source.deletedAnnouncementIds : [],
     deletedParticipantIds: source.deletedParticipantIds || [],
     allowEmptyParticipants: Boolean(options.allowEmptyParticipants),
     allowEmptyRegistrationPassword: Boolean(options.allowEmptyRegistrationPassword),
@@ -1269,11 +1322,17 @@ function mergeSharedStates(baseState, nextState, options = {}) {
     }
   });
 
-  const announcement = getNewestAnnouncement(base, next);
+  const deletedAnnouncementIds = [
+    ...new Set([
+      ...(base.deletedAnnouncementIds || []),
+      ...(next.deletedAnnouncementIds || []),
+    ]),
+  ];
   const announcementDeletedAt = Math.max(
     Number(base.announcementDeletedAt || 0),
     Number(next.announcementDeletedAt || 0),
   );
+  const announcements = mergeAnnouncements(base, next, deletedAnnouncementIds, announcementDeletedAt);
 
   return {
     ...base,
@@ -1296,8 +1355,10 @@ function mergeSharedStates(baseState, nextState, options = {}) {
       ...base.uiPlaceholders,
       ...next.uiPlaceholders,
     },
-    announcement,
+    announcements,
+    announcement: announcements[0] || null,
     announcementDeletedAt,
+    deletedAnnouncementIds,
     deletedParticipantIds: deletedIds,
     activeParticipantId: next.activeParticipantId || base.activeParticipantId,
     viewedParticipantId: next.viewedParticipantId || base.viewedParticipantId,
@@ -1557,28 +1618,34 @@ function getParticipantTaskListUpdatedAt(participant = {}) {
   );
 }
 
-function getNewestAnnouncement(baseState, nextState) {
-  const baseAnnouncement = baseState.announcement || null;
-  const nextAnnouncement = nextState.announcement || null;
-  const deletedAt = Math.max(
-    Number(baseState.announcementDeletedAt || 0),
-    Number(nextState.announcementDeletedAt || 0),
-  );
-  const baseTime = getAnnouncementUpdatedAt(baseAnnouncement);
-  const nextTime = getAnnouncementUpdatedAt(nextAnnouncement);
-  if (baseAnnouncement?.id && baseAnnouncement.id === nextAnnouncement?.id) {
-    const preferredAnnouncement = nextTime >= baseTime ? nextAnnouncement : baseAnnouncement;
-    return {
-      ...preferredAnnouncement,
-      readBy: mergeAnnouncementReadBy(baseAnnouncement, nextAnnouncement),
-    };
-  }
-  const newestAnnouncement = nextTime >= baseTime ? nextAnnouncement : baseAnnouncement;
+function mergeAnnouncements(baseState, nextState, deletedIds = [], deletedAt = 0) {
+  const deletedSet = new Set(deletedIds);
+  const announcementsById = new Map();
 
-  if (deletedAt >= getAnnouncementUpdatedAt(newestAnnouncement)) {
-    return null;
-  }
-  return newestAnnouncement;
+  [...normalizeAnnouncementList(baseState), ...normalizeAnnouncementList(nextState)].forEach((announcement) => {
+    if (!announcement?.id || deletedSet.has(announcement.id)) return;
+    if (deletedAt && deletedAt >= getAnnouncementUpdatedAt(announcement)) return;
+
+    const existing = announcementsById.get(announcement.id);
+    if (!existing) {
+      announcementsById.set(announcement.id, announcement);
+      return;
+    }
+
+    const preferred = getAnnouncementUpdatedAt(announcement) >= getAnnouncementUpdatedAt(existing)
+      ? announcement
+      : existing;
+    announcementsById.set(announcement.id, {
+      ...preferred,
+      readBy: mergeAnnouncementReadBy(existing, announcement),
+    });
+  });
+
+  return [...announcementsById.values()].sort((first, second) => {
+    const timeDiff = Number(second.createdAt || second.updatedAt || 0) - Number(first.createdAt || first.updatedAt || 0);
+    if (timeDiff !== 0) return timeDiff;
+    return String(second.id).localeCompare(String(first.id));
+  });
 }
 
 function getAnnouncementUpdatedAt(announcement) {
@@ -2167,7 +2234,7 @@ function publishAnnouncement() {
   }
 
   const now = Date.now();
-  state.announcement = {
+  const announcement = {
     id: crypto.randomUUID(),
     text,
     createdAt: now,
@@ -2175,6 +2242,11 @@ function publishAnnouncement() {
     recipient,
     readBy: [],
   };
+  state.announcements = normalizeAnnouncementList({
+    announcements: [announcement, ...(state.announcements || [])],
+    deletedAnnouncementIds: state.deletedAnnouncementIds || [],
+  });
+  state.announcement = state.announcements[0] || null;
   state.announcementDeletedAt = 0;
   announcementInput.value = "";
   showAnnouncementMessage("", false);
@@ -2183,14 +2255,26 @@ function publishAnnouncement() {
   render();
 }
 
-function deleteAnnouncement() {
-  if (!state.isAdmin || !state.announcement) return;
+function deleteAnnouncement(announcementId = "") {
+  if (!state.isAdmin) return;
+  const announcements = normalizeAnnouncementList(state);
+  const targetId = announcementId || announcements[0]?.id || "";
+  if (!targetId) return;
 
-  state.announcement = null;
-  state.announcementDeletedAt = Date.now();
-  announcementInput.value = "";
+  const target = announcements.find((announcement) => announcement.id === targetId);
+  const confirmed = window.confirm(`Удалить новость "${target?.text || "без текста"}"?`);
+  if (!confirmed) return;
+
+  state.deletedAnnouncementIds = [
+    ...new Set([
+      ...(state.deletedAnnouncementIds || []),
+      targetId,
+    ]),
+  ];
+  state.announcements = announcements.filter((announcement) => announcement.id !== targetId);
+  state.announcement = state.announcements[0] || null;
   showAnnouncementMessage("Новость удалена.", false);
-  showAdminMessage("Новость удалена у всех участников.", false);
+  showAdminMessage("Новость удалена у выбранных участников.", false);
   saveState();
   render();
 }
@@ -2264,19 +2348,26 @@ function deleteArchivedGoal(participantId, archiveId) {
 
 function markAnnouncementRead() {
   const active = findParticipant(state.activeParticipantId);
-  if (!active || !state.announcement) {
+  const announcementId = announcementModal?.dataset?.announcementId || "";
+  const announcements = normalizeAnnouncementList(state);
+  const announcement = announcements.find((item) => item.id === announcementId) || getUnreadAnnouncementForParticipant(active);
+  if (!active || !announcement) {
     announcementModal.hidden = true;
     return;
   }
 
-  if (!state.announcement.readBy.includes(active.id)) {
-    state.announcement.readBy.push(active.id);
+  if (!announcement.readBy.includes(active.id)) {
+    announcement.readBy.push(active.id);
+    state.announcements = announcements.map((item) => (item.id === announcement.id ? announcement : item));
+    state.announcement = state.announcements[0] || null;
     saveState();
   }
 
   announcementModal.hidden = true;
+  delete announcementModal.dataset.announcementId;
   renderAdminControls();
   renderDeadlineWarningModal();
+  renderAnnouncementModal();
 }
 
 async function hashPassword(name, password) {
@@ -2907,9 +2998,19 @@ async function deleteAccount(participantId) {
       participant.id,
     ]),
   ];
-  if (state.announcement?.readBy) {
-    state.announcement.readBy = state.announcement.readBy.filter((id) => id !== participantId);
-  }
+  state.announcements = normalizeAnnouncementList(state).map((announcement) => ({
+    ...announcement,
+    readBy: announcement.readBy.filter((id) => id !== participantId),
+    recipient: announcement.recipient.type === "participants"
+      ? {
+          ...announcement.recipient,
+          participantIds: announcement.recipient.participantIds.filter((id) => id !== participantId),
+        }
+      : announcement.recipient.type === "participant" && announcement.recipient.participantId === participantId
+        ? { type: "participants", participantId: "", participantIds: [] }
+        : announcement.recipient,
+  }));
+  state.announcement = state.announcements[0] || null;
   if (state.activeParticipantId === participantId) {
     state.activeParticipantId = "";
     localStorage.removeItem(SESSION_KEY);
@@ -3318,15 +3419,16 @@ function renderAnnouncementAdminPanel() {
   announcementReadList.replaceChildren();
   renderAnnouncementRecipientOptions();
 
-  if (state.announcement?.text) {
-    announcementInput.placeholder = state.announcement.text;
-    deleteAnnouncementButton.hidden = false;
-  } else {
-    announcementInput.placeholder = "Напишите важную новость для группы";
-    deleteAnnouncementButton.hidden = true;
+  const announcements = normalizeAnnouncementList(state);
+  state.announcements = announcements;
+  state.announcement = announcements[0] || null;
+  announcementInput.placeholder = "Напишите важную новость для группы";
+  deleteAnnouncementButton.hidden = announcements.length === 0;
+
+  if (announcements.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "Новость ещё не опубликована.";
+    empty.textContent = "Новости ещё не опубликованы.";
     announcementReadList.append(empty);
     return;
   }
@@ -3339,33 +3441,57 @@ function renderAnnouncementAdminPanel() {
     return;
   }
 
-  const targetParticipants = getAnnouncementTargetParticipants(state.announcement);
+  announcements.forEach((announcement) => {
+    announcementReadList.append(createAnnouncementHistoryCard(announcement));
+  });
+}
+
+function createAnnouncementHistoryCard(announcement) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const text = document.createElement("p");
+  const removeButton = document.createElement("button");
+  const meta = document.createElement("div");
+  const targetList = document.createElement("div");
+  const targetParticipants = getAnnouncementTargetParticipants(announcement);
+  const readCount = targetParticipants.filter((participant) => announcement.readBy.includes(participant.id)).length;
+
+  card.className = "announcement-history-card";
+  header.className = "announcement-history-header";
+  text.className = "announcement-history-text";
+  text.textContent = announcement.text;
+  removeButton.className = "announcement-delete-one";
+  removeButton.type = "button";
+  removeButton.textContent = "Удалить";
+  removeButton.addEventListener("click", () => deleteAnnouncement(announcement.id));
+  header.append(text, removeButton);
+
+  meta.className = "announcement-history-meta";
+  meta.textContent = `Отправлено: ${formatAnnouncementDate(announcement.createdAt)} · Получатели: ${formatRecipientSummary(targetParticipants)} · Прочитано ${readCount} из ${targetParticipants.length}`;
+
+  targetList.className = "announcement-target-list";
   if (targetParticipants.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "Получатель новости не найден.";
-    announcementReadList.append(empty);
-    return;
+    empty.textContent = "Получатели этой новости не найдены.";
+    targetList.append(empty);
+  } else {
+    targetParticipants.forEach((participant) => {
+      const row = document.createElement("div");
+      const name = document.createElement("span");
+      const status = document.createElement("strong");
+      row.className = "read-person";
+      const hasRead = Boolean(announcement.readBy.includes(participant.id));
+      row.classList.toggle("has-read", hasRead);
+      name.textContent = participant.name;
+      status.textContent = hasRead ? "✓ Прочитано" : "✓ Отправлено";
+      row.append(name, status);
+      targetList.append(row);
+    });
   }
 
-  const readCount = targetParticipants.filter((participant) => state.announcement?.readBy?.includes(participant.id)).length;
-  const summary = document.createElement("div");
-  summary.className = "announcement-read-summary";
-  summary.textContent = `Статус отправки: отправлено ${targetParticipants.length}. Прочитано ${readCount} из ${targetParticipants.length}.`;
-  announcementReadList.append(summary);
-
-  targetParticipants.forEach((participant) => {
-    const row = document.createElement("div");
-    const name = document.createElement("span");
-    const status = document.createElement("strong");
-    row.className = "read-person";
-    const hasRead = Boolean(state.announcement?.readBy?.includes(participant.id));
-    row.classList.toggle("has-read", hasRead);
-    name.textContent = participant.name;
-    status.textContent = hasRead ? "✓ Прочитано" : "✓ Отправлено";
-    row.append(name, status);
-    announcementReadList.append(row);
-  });
+  card.append(header, meta, targetList);
+  return card;
 }
 
 function renderAnnouncementRecipientOptions() {
@@ -3434,7 +3560,7 @@ function handleAnnouncementRecipientChange(changedCheckbox) {
 
 function getCurrentAnnouncementRecipientSelection() {
   if (!announcementRecipientSelect) {
-    return normalizeAnnouncementRecipient(state.announcement?.recipient);
+    return { type: "all", participantId: "", participantIds: [] };
   }
   const checkedParticipants = [...announcementRecipientSelect.querySelectorAll("[data-participant-id]:checked")]
     .map((checkbox) => checkbox.dataset.participantId)
@@ -3446,7 +3572,7 @@ function getCurrentAnnouncementRecipientSelection() {
   if (allChecked) {
     return { type: "all", participantId: "", participantIds: [] };
   }
-  return normalizeAnnouncementRecipient(state.announcement?.recipient);
+  return { type: "all", participantId: "", participantIds: [] };
 }
 
 function getSelectedAnnouncementRecipient() {
@@ -3481,16 +3607,28 @@ function getAnnouncementTargetParticipants(announcement) {
 }
 
 function formatRecipientSummary(participants) {
+  if (!participants.length) return "получатели не найдены";
   if (participants.length === state.participants.length) return "всем участникам";
   if (participants.length <= 3) return participants.map((participant) => participant.name).join(", ");
   return `${participants.slice(0, 3).map((participant) => participant.name).join(", ")} и ещё ${participants.length - 3}`;
 }
 
-function shouldShowAnnouncementToParticipant(participant) {
-  if (!participant || !state.announcement?.text) return false;
-  if (state.announcement.readBy.includes(participant.id)) return false;
+function formatAnnouncementDate(timestamp) {
+  const date = new Date(Number(timestamp || Date.now()));
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-  const recipient = normalizeAnnouncementRecipient(state.announcement.recipient);
+function shouldShowAnnouncementToParticipant(announcement, participant) {
+  if (!participant || !announcement?.text) return false;
+  if (announcement.readBy.includes(participant.id)) return false;
+
+  const recipient = normalizeAnnouncementRecipient(announcement.recipient);
   if (recipient.type === "participant" && recipient.participantId !== participant.id) return false;
   if (recipient.type === "participants" && !recipient.participantIds.includes(participant.id)) return false;
   if (recipient.type === "all" && !participant.onboardingCompleted) return false;
@@ -3498,12 +3636,21 @@ function shouldShowAnnouncementToParticipant(participant) {
   return true;
 }
 
+function getUnreadAnnouncementForParticipant(participant) {
+  if (!participant) return null;
+  return normalizeAnnouncementList(state)
+    .slice()
+    .reverse()
+    .find((announcement) => shouldShowAnnouncementToParticipant(announcement, participant)) || null;
+}
+
 function renderAnnouncementModal() {
   const active = findParticipant(state.activeParticipantId);
+  const announcement = getUnreadAnnouncementForParticipant(active);
   const shouldShow =
     active &&
     !state.isAdmin &&
-    shouldShowAnnouncementToParticipant(active) &&
+    announcement &&
     welcomeGate.hidden &&
     loginModal.hidden &&
     adminModal.hidden &&
@@ -3512,7 +3659,10 @@ function renderAnnouncementModal() {
 
   announcementModal.hidden = !shouldShow;
   if (shouldShow) {
-    announcementText.textContent = state.announcement.text;
+    announcementModal.dataset.announcementId = announcement.id;
+    announcementText.textContent = announcement.text;
+  } else {
+    delete announcementModal.dataset.announcementId;
   }
 }
 
