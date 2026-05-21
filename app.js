@@ -1016,9 +1016,21 @@ const tourSteps = [
     placement: "bottom",
   },
   {
+    selector: ".participant-path-panel",
+    title: "Путь участников",
+    text: "Здесь видно, как участники поднимаются по этапам дисциплины: от начала пути до пика стабильности.",
+    placement: "bottom",
+  },
+  {
     selector: "#resultTable",
     title: "Таблица участников",
     text: "В таблице показаны участники, их цель, срок и сколько шагов выполнено.",
+    placement: "right",
+  },
+  {
+    selector: ".status-card",
+    title: "Мой статус",
+    text: "Эта карточка показывает вашу серию дней, рекорд, активность и текущий статус дисциплины.",
     placement: "right",
   },
   {
