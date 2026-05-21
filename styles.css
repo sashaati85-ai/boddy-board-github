@@ -2138,7 +2138,8 @@ body.is-dragging-card * {
   display: none;
 }
 
-.admin-image-tools {
+.admin-image-tools,
+.admin-participants-tools {
   display: grid;
   gap: 10px;
   border: 1px solid var(--line);
@@ -2147,9 +2148,123 @@ body.is-dragging-card * {
   background: var(--soft);
 }
 
-.admin-image-tools > strong {
+.admin-image-tools > strong,
+.admin-tool-head > strong {
   color: var(--text);
   font-size: 14px;
+}
+
+.admin-tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-tool-head button {
+  min-height: 36px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+
+.admin-participants-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-participants-panel[hidden] {
+  display: none;
+}
+
+.admin-inactivity-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 8px;
+}
+
+.admin-inactivity-controls input {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 13px 14px;
+  outline: none;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+
+.admin-participants-list {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.admin-participant-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(81, 129, 184, 0.12);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.admin-participant-row.is-inactive {
+  border-color: rgba(202, 67, 67, 0.22);
+  background: #fff7f6;
+}
+
+.admin-participant-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-participant-main strong,
+.admin-participant-main span {
+  overflow-wrap: anywhere;
+}
+
+.admin-participant-main strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.admin-participant-main span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-participant-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(81, 129, 184, 0.1);
+  color: var(--vk-blue-dark);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.admin-participant-row.is-inactive .admin-participant-status {
+  background: #ffe4dd;
+  color: var(--danger);
+}
+
+.admin-participant-delete {
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: #ffe4dd;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .admin-image-tools select {
@@ -2606,6 +2721,26 @@ body.is-dragging-card * {
   .top-actions,
   .top-actions button,
   .modal-form button {
+    width: 100%;
+  }
+
+  .admin-tool-head,
+  .admin-participant-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-tool-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-inactivity-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-participant-status,
+  .admin-participant-delete {
+    justify-content: center;
     width: 100%;
   }
 

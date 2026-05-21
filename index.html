@@ -150,6 +150,26 @@
             <input id="newAdminPasswordInput" type="password" maxlength="60" autocomplete="new-password" placeholder="Новый пароль администратора" data-placeholder-key="newAdminPasswordPlaceholder">
           </label>
           <button id="saveAdminPasswordButton" class="primary-action" type="button" data-edit-key="saveAdminPasswordButton">Сохранить новый пароль</button>
+          <div class="admin-participants-tools">
+            <div class="admin-tool-head">
+              <strong data-edit-key="adminParticipantsTitle">Участники и активность</strong>
+              <button id="toggleAdminParticipantsButton" class="ghost-action" type="button" data-edit-key="toggleAdminParticipantsButton">Показать всех участников</button>
+            </div>
+            <div id="adminParticipantsPanel" class="admin-participants-panel" hidden>
+              <label class="announcement-label">
+                <span data-edit-key="inactivityThresholdLabel">Показывать неактивных после</span>
+                <div class="admin-inactivity-controls">
+                  <input id="inactivityThresholdInput" type="number" min="1" max="365" step="1" value="7">
+                  <select id="inactivityThresholdUnit">
+                    <option value="days" data-edit-key="inactivityUnitDays">дней</option>
+                    <option value="weeks" data-edit-key="inactivityUnitWeeks">недель</option>
+                  </select>
+                </div>
+              </label>
+              <button id="saveInactivityThresholdButton" class="primary-action" type="button" data-edit-key="saveInactivityThresholdButton">Сохранить период</button>
+              <div id="adminParticipantsList" class="admin-participants-list"></div>
+            </div>
+          </div>
           <div class="admin-image-tools">
             <strong data-edit-key="participantPhotoPanelTitle">Фото участника</strong>
             <label class="announcement-label">

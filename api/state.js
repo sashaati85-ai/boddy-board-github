@@ -14,6 +14,8 @@ function normalizeSharedState(value) {
     siteImages: normalizeSiteImages(source.siteImages),
     uiText: normalizeEditableMap(source.uiText),
     uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
+    inactivityThresholdDays: normalizeInactivityThresholdDays(source.inactivityThresholdDays),
+    inactivityThresholdUpdatedAt: Number(source.inactivityThresholdUpdatedAt || 0),
     announcements,
     announcement: announcements[0] || null,
     announcementDeletedAt: Number(source.announcementDeletedAt || 0),
@@ -68,7 +70,7 @@ module.exports = async function handler(request, response) {
     });
     const currentData = currentResponse.ok
       ? normalizeSharedState(await currentResponse.json())
-      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), uiText: {}, uiPlaceholders: {}, announcements: [], announcement: null, announcementDeletedAt: 0, deletedAnnouncementIds: [], deletedParticipantIds: [] };
+      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), uiText: {}, uiPlaceholders: {}, inactivityThresholdDays: 7, inactivityThresholdUpdatedAt: 0, announcements: [], announcement: null, announcementDeletedAt: 0, deletedAnnouncementIds: [], deletedParticipantIds: [] };
     const deletedIds = new Set([
       ...currentData.deletedParticipantIds,
       ...data.deletedParticipantIds,
@@ -85,6 +87,11 @@ module.exports = async function handler(request, response) {
     };
     data.uiText = { ...currentData.uiText, ...data.uiText };
     data.uiPlaceholders = { ...currentData.uiPlaceholders, ...data.uiPlaceholders };
+    data.inactivityThresholdDays = getNewestInactivityThreshold(currentData, data);
+    data.inactivityThresholdUpdatedAt = Math.max(
+      Number(currentData.inactivityThresholdUpdatedAt || 0),
+      Number(data.inactivityThresholdUpdatedAt || 0),
+    );
     data.deletedAnnouncementIds = [
       ...new Set([
         ...(currentData.deletedAnnouncementIds || []),
@@ -128,6 +135,12 @@ function normalizeSiteImages(siteImages = {}) {
     logo: typeof siteImages.logo === "string" ? siteImages.logo : "",
     cover: typeof siteImages.cover === "string" ? siteImages.cover : "",
   };
+}
+
+function normalizeInactivityThresholdDays(value) {
+  const days = Number(value || 7);
+  if (!Number.isFinite(days)) return 7;
+  return Math.min(365, Math.max(1, Math.round(days)));
 }
 
 function normalizeAnnouncement(announcement) {
@@ -245,6 +258,16 @@ function mergeAnnouncementReadBy(currentAnnouncement, incomingAnnouncement) {
       ...(Array.isArray(incomingAnnouncement?.readBy) ? incomingAnnouncement.readBy : []),
     ]),
   ];
+}
+
+function getNewestInactivityThreshold(currentData, incomingData) {
+  const currentTime = Number(currentData.inactivityThresholdUpdatedAt || 0);
+  const incomingTime = Number(incomingData.inactivityThresholdUpdatedAt || 0);
+  return normalizeInactivityThresholdDays(
+    incomingTime >= currentTime
+      ? incomingData.inactivityThresholdDays
+      : currentData.inactivityThresholdDays,
+  );
 }
 
 function mergeParticipants(currentParticipants = [], incomingParticipants = [], deletedIds = new Set()) {

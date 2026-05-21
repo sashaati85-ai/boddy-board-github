@@ -134,6 +134,12 @@ const participantPhotoUrlInput = document.querySelector("#participantPhotoUrlInp
 const participantPhotoFileInput = document.querySelector("#participantPhotoFileInput");
 const saveParticipantPhotoButton = document.querySelector("#saveParticipantPhotoButton");
 const clearParticipantPhotoButton = document.querySelector("#clearParticipantPhotoButton");
+const toggleAdminParticipantsButton = document.querySelector("#toggleAdminParticipantsButton");
+const adminParticipantsPanel = document.querySelector("#adminParticipantsPanel");
+const adminParticipantsList = document.querySelector("#adminParticipantsList");
+const inactivityThresholdInput = document.querySelector("#inactivityThresholdInput");
+const inactivityThresholdUnit = document.querySelector("#inactivityThresholdUnit");
+const saveInactivityThresholdButton = document.querySelector("#saveInactivityThresholdButton");
 const saveRegistrationPasswordButton = document.querySelector("#saveRegistrationPasswordButton");
 const clearRegistrationPasswordButton = document.querySelector("#clearRegistrationPasswordButton");
 const registrationPasswordInput = document.querySelector("#registrationPasswordInput");
@@ -266,6 +272,8 @@ coverImageInput?.addEventListener("change", () => updateSiteImage("cover", cover
 saveParticipantPhotoButton?.addEventListener("click", saveParticipantPhoto);
 clearParticipantPhotoButton?.addEventListener("click", clearParticipantPhoto);
 participantPhotoSelect?.addEventListener("change", syncParticipantPhotoInput);
+toggleAdminParticipantsButton?.addEventListener("click", toggleAdminParticipantsPanel);
+saveInactivityThresholdButton?.addEventListener("click", saveInactivityThreshold);
 openAnnouncementButton.addEventListener("click", openAdminNewsModal);
 openRegistrationPasswordButton?.addEventListener("click", () => openModal(registrationPasswordModal, registrationPasswordInput));
 saveRegistrationPasswordButton?.addEventListener("click", saveRegistrationPassword);
@@ -539,6 +547,8 @@ function normalizeState(candidate) {
     siteImages: normalizeSiteImages(candidate.siteImages),
     uiText: normalizeEditableMap(candidate.uiText),
     uiPlaceholders: normalizeEditableMap(candidate.uiPlaceholders),
+    inactivityThresholdDays: normalizeInactivityThresholdDays(candidate.inactivityThresholdDays),
+    inactivityThresholdUpdatedAt: Number(candidate.inactivityThresholdUpdatedAt || 0),
     announcements,
     announcement: announcements[0] || null,
     announcementDeletedAt: Number(candidate.announcementDeletedAt || 0),
@@ -667,6 +677,12 @@ function normalizeEditableMap(value) {
   );
 }
 
+function normalizeInactivityThresholdDays(value) {
+  const days = Number(value || 7);
+  if (!Number.isFinite(days)) return 7;
+  return Math.min(365, Math.max(1, Math.round(days)));
+}
+
 function migrateLegacyState() {
   const groupState = localStorage.getItem(LEGACY_KEYS[0]);
   if (groupState) {
@@ -716,6 +732,8 @@ function migrateLegacyState() {
       siteImages: createDefaultSiteImages(),
       uiText: {},
       uiPlaceholders: {},
+      inactivityThresholdDays: 7,
+      inactivityThresholdUpdatedAt: 0,
       announcements: [],
       announcement: null,
       announcementDeletedAt: 0,
@@ -739,6 +757,8 @@ function createInitialState() {
     siteImages: createDefaultSiteImages(),
     uiText: {},
     uiPlaceholders: {},
+    inactivityThresholdDays: 7,
+    inactivityThresholdUpdatedAt: 0,
     announcements: [],
     announcement: null,
     announcementDeletedAt: 0,
@@ -1063,6 +1083,7 @@ let currentTourParticipantId = "";
 let currentTourStep = 0;
 let currentTourTarget = null;
 let tourPositionFrame = 0;
+let adminParticipantsExpanded = false;
 
 function openTour(participantId) {
   if (!tourModal || !tourCard) return;
@@ -1248,6 +1269,8 @@ function toSharedState(source, options = {}) {
     siteImages: normalizeSiteImages(source.siteImages),
     uiText: normalizeEditableMap(source.uiText),
     uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
+    inactivityThresholdDays: normalizeInactivityThresholdDays(source.inactivityThresholdDays),
+    inactivityThresholdUpdatedAt: Number(source.inactivityThresholdUpdatedAt || 0),
     announcements,
     announcement: announcements[0] || null,
     announcementDeletedAt: Number(source.announcementDeletedAt || 0),
@@ -1376,6 +1399,11 @@ function mergeSharedStates(baseState, nextState, options = {}) {
       ...base.uiPlaceholders,
       ...next.uiPlaceholders,
     },
+    inactivityThresholdDays: getNewestInactivityThreshold(base, next),
+    inactivityThresholdUpdatedAt: Math.max(
+      Number(base.inactivityThresholdUpdatedAt || 0),
+      Number(next.inactivityThresholdUpdatedAt || 0),
+    ),
     announcements,
     announcement: announcements[0] || null,
     announcementDeletedAt,
@@ -1681,6 +1709,16 @@ function mergeAnnouncementReadBy(baseAnnouncement, nextAnnouncement) {
       ...(Array.isArray(nextAnnouncement?.readBy) ? nextAnnouncement.readBy : []),
     ]),
   ];
+}
+
+function getNewestInactivityThreshold(baseState, nextState) {
+  const baseTime = Number(baseState.inactivityThresholdUpdatedAt || 0);
+  const nextTime = Number(nextState.inactivityThresholdUpdatedAt || 0);
+  return normalizeInactivityThresholdDays(
+    nextTime >= baseTime
+      ? nextState.inactivityThresholdDays
+      : baseState.inactivityThresholdDays,
+  );
 }
 
 function isEditingParticipantContent() {
@@ -2043,7 +2081,121 @@ function renderAdminPanel() {
   adminLogoutButton.hidden = !state.isAdmin;
   if (state.isAdmin) {
     renderParticipantPhotoOptions();
+    renderAdminParticipantsPanel();
   }
+}
+
+function toggleAdminParticipantsPanel() {
+  if (!state.isAdmin) return;
+  adminParticipantsExpanded = !adminParticipantsExpanded;
+  renderAdminParticipantsPanel();
+}
+
+function saveInactivityThreshold() {
+  if (!state.isAdmin) return;
+  const value = Number(inactivityThresholdInput?.value || 1);
+  const unit = inactivityThresholdUnit?.value === "weeks" ? "weeks" : "days";
+  const days = normalizeInactivityThresholdDays(unit === "weeks" ? value * 7 : value);
+  state.inactivityThresholdDays = days;
+  state.inactivityThresholdUpdatedAt = Date.now();
+  saveState();
+  showAdminMessage(`Период неактивности сохранён: ${formatDayCount(days)}.`, false);
+  renderAdminParticipantsPanel();
+}
+
+function renderAdminParticipantsPanel() {
+  if (!toggleAdminParticipantsButton || !adminParticipantsPanel || !adminParticipantsList) return;
+
+  const thresholdDays = normalizeInactivityThresholdDays(state.inactivityThresholdDays);
+  syncInactivityThresholdControls(thresholdDays);
+
+  adminParticipantsPanel.hidden = !adminParticipantsExpanded;
+  toggleAdminParticipantsButton.textContent = adminParticipantsExpanded
+    ? "Скрыть участников"
+    : "Показать всех участников";
+
+  adminParticipantsList.replaceChildren();
+  if (!adminParticipantsExpanded) return;
+
+  if (state.participants.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Участников пока нет.";
+    adminParticipantsList.append(empty);
+    return;
+  }
+
+  getAdminParticipantRows(thresholdDays).forEach(({ participant, status, progress, inactive }) => {
+    adminParticipantsList.append(createAdminParticipantRow(participant, status, progress, inactive, thresholdDays));
+  });
+}
+
+function syncInactivityThresholdControls(thresholdDays) {
+  if (!inactivityThresholdInput || !inactivityThresholdUnit) return;
+
+  const useWeeks = thresholdDays % 7 === 0 && thresholdDays >= 7;
+  inactivityThresholdUnit.value = useWeeks ? "weeks" : "days";
+  inactivityThresholdInput.value = String(useWeeks ? thresholdDays / 7 : thresholdDays);
+}
+
+function getAdminParticipantRows(thresholdDays) {
+  return state.participants
+    .map((participant) => {
+      const status = getParticipantStatusInfo(participant);
+      const progress = getActionProgress(participant.tasks || []);
+      const inactive = isParticipantInactiveFor(status, thresholdDays);
+      return { participant, status, progress, inactive };
+    })
+    .sort((first, second) => {
+      const inactiveDiff = Number(second.inactive) - Number(first.inactive);
+      if (inactiveDiff !== 0) return inactiveDiff;
+      const firstDays = Number.isFinite(first.status.daysWithoutActivity) ? first.status.daysWithoutActivity : 9999;
+      const secondDays = Number.isFinite(second.status.daysWithoutActivity) ? second.status.daysWithoutActivity : 9999;
+      if (secondDays !== firstDays) return secondDays - firstDays;
+      return first.participant.name.localeCompare(second.participant.name, "ru");
+    });
+}
+
+function isParticipantInactiveFor(status, thresholdDays) {
+  return !status.lastActivityDate || status.daysWithoutActivity >= thresholdDays;
+}
+
+function createAdminParticipantRow(participant, status, progress, inactive, thresholdDays) {
+  const row = document.createElement("article");
+  const main = document.createElement("div");
+  const name = document.createElement("strong");
+  const meta = document.createElement("span");
+  const details = document.createElement("span");
+  const statusBadge = document.createElement("span");
+  const deleteButton = document.createElement("button");
+
+  row.className = "admin-participant-row";
+  row.classList.toggle("is-inactive", inactive);
+  main.className = "admin-participant-main";
+  name.textContent = participant.name;
+  meta.textContent = getAdminParticipantActivityText(status, inactive, thresholdDays);
+  details.textContent = `${participant.goal?.trim() || "Цель не указана"} · шаги ${progress.done} из ${progress.total}`;
+  statusBadge.className = "admin-participant-status";
+  statusBadge.textContent = inactive ? "Неактивен" : "В движении";
+  deleteButton.className = "admin-participant-delete";
+  deleteButton.type = "button";
+  deleteButton.textContent = "Удалить";
+  deleteButton.addEventListener("click", () => deleteAccount(participant.id));
+
+  main.append(name, meta, details);
+  row.append(main, statusBadge, deleteButton);
+  return row;
+}
+
+function getAdminParticipantActivityText(status, inactive, thresholdDays) {
+  if (!status.lastActivityDate) {
+    return `Нет выполненных шагов · порог ${formatDayCount(thresholdDays)}`;
+  }
+  if (status.daysWithoutActivity === 0) {
+    return "Делал шаг сегодня";
+  }
+  const prefix = inactive ? "Не делал" : "Последний шаг";
+  return `${prefix}: ${formatDayCount(status.daysWithoutActivity)} назад · серия ${formatDayCount(status.streak)}`;
 }
 
 function renderSiteImages() {
