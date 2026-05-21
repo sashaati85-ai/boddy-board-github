@@ -290,6 +290,7 @@ function mergeTask(currentTask = {}, incomingTask = {}) {
     ...fallbackTask,
     ...preferredTask,
     done: Boolean(currentTask.done || incomingTask.done),
+    order: getPreferredOrder(preferredTask, fallbackTask),
     subtasksHidden: subtasks.length > 0 && subtasks.every((subtask) => Boolean(subtask.done))
       ? true
       : Boolean(preferredTask.subtasksHidden),
@@ -336,7 +337,7 @@ function orderTasksByCompletion(tasks = []) {
       incomplete.push(task);
     }
   });
-  return [...incomplete, ...complete];
+  return [...sortByOrder(incomplete), ...sortByOrder(complete)];
 }
 
 function orderSubtasksByCompletion(subtasks = []) {
@@ -349,7 +350,29 @@ function orderSubtasksByCompletion(subtasks = []) {
       incomplete.push(subtask);
     }
   });
-  return [...incomplete, ...complete];
+  return [...sortByOrder(incomplete), ...sortByOrder(complete)];
+}
+
+function sortByOrder(items = []) {
+  return [...items].sort((a, b) => {
+    const orderDiff = getOrderValue(a) - getOrderValue(b);
+    if (orderDiff !== 0) return orderDiff;
+    return Number(a.createdAt || 0) - Number(b.createdAt || 0);
+  });
+}
+
+function getOrderValue(item = {}, fallback = 0) {
+  const order = Number(item.order);
+  if (Number.isFinite(order) && order > 0) return order;
+  const createdAt = Number(item.createdAt);
+  if (Number.isFinite(createdAt) && createdAt > 0) return createdAt;
+  return fallback + 1;
+}
+
+function getPreferredOrder(preferredItem = {}, fallbackItem = {}) {
+  const preferredOrder = Number(preferredItem.order);
+  if (Number.isFinite(preferredOrder) && preferredOrder > 0) return preferredOrder;
+  return getOrderValue(fallbackItem);
 }
 
 function mergeSubtask(currentSubtask = null, incomingSubtask = null) {
@@ -363,6 +386,7 @@ function mergeSubtask(currentSubtask = null, incomingSubtask = null) {
     ...fallbackSubtask,
     ...preferredSubtask,
     done: Boolean(currentSubtask.done || incomingSubtask.done),
+    order: getPreferredOrder(preferredSubtask, fallbackSubtask),
   };
 }
 
