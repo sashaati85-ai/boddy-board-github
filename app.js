@@ -51,6 +51,14 @@ const STATUS_TIERS = [
     maxStreak: Infinity,
   },
 ];
+const PATH_ZONE_TITLES = {
+  newbie: "Начало пути",
+  walker: "Формирование привычки",
+  stable: "Стабильность",
+  champion: "Сильная форма",
+  legend: "Пик дисциплины",
+};
+const PATH_ZONE_LIMIT = 3;
 
 const defaultParticipant = {
   id: crypto.randomUUID(),
@@ -165,6 +173,7 @@ const totalTasks = document.querySelector("#totalTasks");
 const doneTasks = document.querySelector("#doneTasks");
 const resultChart = document.querySelector("#resultChart");
 const resultTable = document.querySelector("#resultTable");
+const participantPath = document.querySelector("#participantPath");
 const deleteColumnHeader = document.querySelector("#deleteColumnHeader");
 const profileView = document.querySelector("#profileView");
 const chartTemplate = document.querySelector("#chartTemplate");
@@ -3363,6 +3372,7 @@ function render() {
   renderAdminControls();
   renderActiveBadge();
   renderResults();
+  renderParticipantPath();
   renderProfile();
   renderGoalCompletionModal();
   renderAnnouncementModal();
@@ -3928,6 +3938,145 @@ function renderTableRow(participant, progress) {
   adminDeleteButton.addEventListener("click", () => deleteAccount(participant.id));
 
   resultTable.append(row);
+}
+
+function renderParticipantPath() {
+  if (!participantPath) return;
+
+  participantPath.replaceChildren();
+
+  if (state.participants.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Путь появится, когда участники начнут движение.";
+    participantPath.append(empty);
+    return;
+  }
+
+  const road = document.createElement("div");
+  road.className = "participant-path-road";
+
+  STATUS_TIERS.forEach((tier, zoneIndex) => {
+    const zone = document.createElement("article");
+    const header = document.createElement("div");
+    const title = document.createElement("strong");
+    const range = document.createElement("span");
+    const members = document.createElement("div");
+    const zoneParticipants = getPathZoneParticipants(tier);
+    const visibleParticipants = zoneParticipants.slice(0, PATH_ZONE_LIMIT);
+    const hiddenCount = Math.max(0, zoneParticipants.length - visibleParticipants.length);
+
+    zone.className = "participant-path-zone";
+    zone.dataset.status = tier.key;
+    zone.style.setProperty("--zone-index", String(zoneIndex));
+    header.className = "participant-path-zone-header";
+    title.textContent = `${tier.icon} ${PATH_ZONE_TITLES[tier.key] || tier.title}`;
+    range.textContent = formatPathZoneRange(tier);
+    members.className = "participant-path-members";
+
+    header.append(title, range);
+    visibleParticipants.forEach((participant) => {
+      members.append(createPathParticipant(participant));
+    });
+
+    if (hiddenCount > 0) {
+      const more = document.createElement("div");
+      more.className = "participant-path-more";
+      more.textContent = `+${hiddenCount} ${getParticipantPlural(hiddenCount)}`;
+      members.append(more);
+    }
+
+    if (zoneParticipants.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "participant-path-empty";
+      empty.textContent = "Пока пусто";
+      members.append(empty);
+    }
+
+    zone.append(header, members);
+    road.append(zone);
+  });
+
+  const peak = document.createElement("div");
+  peak.className = "participant-path-peak";
+  peak.setAttribute("aria-label", "Вершина пути");
+  peak.textContent = "✦";
+  road.append(peak);
+  participantPath.append(road);
+}
+
+function getPathZoneParticipants(tier) {
+  return state.participants
+    .map((participant) => ({
+      participant,
+      status: getParticipantStatusInfo(participant),
+    }))
+    .filter(({ status }) => status.key === tier.key)
+    .sort((first, second) => {
+      const activeDiff = Number(isActive(second.participant.id)) - Number(isActive(first.participant.id));
+      if (activeDiff !== 0) return activeDiff;
+      const streakDiff = second.status.streak - first.status.streak;
+      if (streakDiff !== 0) return streakDiff;
+      return first.participant.name.localeCompare(second.participant.name, "ru");
+    })
+    .map(({ participant }) => participant);
+}
+
+function createPathParticipant(participant) {
+  const status = getParticipantStatusInfo(participant);
+  const button = document.createElement("button");
+  const avatar = document.createElement("span");
+  const info = document.createElement("span");
+  const name = document.createElement("strong");
+  const statusText = document.createElement("span");
+  const streak = document.createElement("span");
+
+  button.className = "participant-path-person";
+  button.type = "button";
+  button.classList.toggle("is-active", isActive(participant.id));
+  button.addEventListener("click", () => viewParticipant(participant.id));
+
+  avatar.className = "participant-path-avatar";
+  if (participant.picture) {
+    const image = document.createElement("img");
+    image.src = participant.picture;
+    image.alt = `Фото ${participant.name}`;
+    avatar.append(image);
+  } else {
+    avatar.textContent = getParticipantInitial(participant.name);
+  }
+
+  info.className = "participant-path-info";
+  name.textContent = participant.name;
+  statusText.textContent = `${status.icon} ${formatStatusTitle(status.title)}`;
+  streak.textContent = `🔥 ${formatDayCount(status.streak)}`;
+  info.append(name, statusText, streak);
+  button.append(avatar, info);
+  return button;
+}
+
+function formatPathZoneRange(tier) {
+  if (tier.maxStreak === Infinity) return `${tier.minStreak}+ дней`;
+  return `${tier.minStreak}–${tier.maxStreak} дня`;
+}
+
+function formatStatusTitle(title) {
+  const normalized = String(title || "").toLowerCase();
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : "";
+}
+
+function getParticipantInitial(name) {
+  return String(name || "У").trim().charAt(0).toUpperCase() || "У";
+}
+
+function getParticipantPlural(count) {
+  const value = Math.abs(Number(count || 0));
+  const lastTwo = value % 100;
+  const last = value % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return "участников";
+  if (last === 1) return "участник";
+  if (last >= 2 && last <= 4) return "участника";
+  return "участников";
 }
 
 function renderProfile() {

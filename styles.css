@@ -670,6 +670,234 @@ tbody tr.is-viewed {
   font-size: 13px;
 }
 
+.participant-path-panel {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(81, 129, 184, 0.14);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(242, 125, 50, 0.12), transparent 28%),
+    linear-gradient(135deg, #ffffff, #f8fbff);
+  box-shadow: 0 18px 46px rgba(21, 32, 43, 0.07);
+}
+
+.participant-path-heading {
+  margin-bottom: 0;
+}
+
+.participant-path-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 10px;
+  scrollbar-width: thin;
+}
+
+.participant-path {
+  min-width: 920px;
+}
+
+.participant-path-road {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(148px, 1fr)) 42px;
+  align-items: end;
+  gap: 14px;
+  min-height: 270px;
+  padding: 28px 6px 10px;
+}
+
+.participant-path-road::before {
+  content: "";
+  position: absolute;
+  right: 54px;
+  bottom: 71px;
+  left: 28px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(81, 129, 184, 0.22), rgba(81, 129, 184, 0.58), rgba(242, 125, 50, 0.62));
+  box-shadow: 0 0 24px rgba(81, 129, 184, 0.16);
+  transform: rotate(-4deg);
+  transform-origin: left center;
+}
+
+.participant-path-zone {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 180px;
+  padding: 13px;
+  border: 1px solid rgba(81, 129, 184, 0.13);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 14px 32px rgba(21, 32, 43, 0.06);
+  transform: translateY(calc((4 - var(--zone-index)) * 7px));
+  animation: path-zone-rise 360ms ease both;
+}
+
+.participant-path-zone::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: -19px;
+  width: 13px;
+  height: 13px;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: var(--vk-blue);
+  box-shadow: 0 0 0 5px rgba(81, 129, 184, 0.12), 0 0 22px rgba(81, 129, 184, 0.2);
+}
+
+.participant-path-zone[data-status="stable"]::after,
+.participant-path-zone[data-status="champion"]::after,
+.participant-path-zone[data-status="legend"]::after {
+  background: var(--orange);
+  box-shadow: 0 0 0 5px rgba(242, 125, 50, 0.12), 0 0 24px rgba(242, 125, 50, 0.2);
+}
+
+.participant-path-zone-header {
+  display: grid;
+  gap: 4px;
+}
+
+.participant-path-zone-header strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.25;
+}
+
+.participant-path-zone-header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.participant-path-members {
+  display: grid;
+  gap: 8px;
+}
+
+.participant-path-person {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 56px;
+  border: 1px solid rgba(81, 129, 184, 0.11);
+  border-radius: 14px;
+  padding: 8px;
+  background: rgba(245, 247, 250, 0.78);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.participant-path-person:hover,
+.participant-path-person.is-active,
+.participant-path-person:focus-visible {
+  border-color: rgba(242, 125, 50, 0.32);
+  box-shadow: 0 12px 26px rgba(37, 67, 92, 0.1);
+  transform: translateY(-2px);
+}
+
+.participant-path-person:focus-visible {
+  outline: 3px solid rgba(242, 125, 50, 0.22);
+  outline-offset: 2px;
+}
+
+.participant-path-avatar {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(81, 129, 184, 0.16), rgba(242, 125, 50, 0.16));
+  color: var(--vk-blue-dark);
+  font-size: 16px;
+  font-weight: 950;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
+.participant-path-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.participant-path-info {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.participant-path-info strong,
+.participant-path-info span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.participant-path-info strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.participant-path-info span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.participant-path-more,
+.participant-path-empty {
+  margin: 0;
+  border-radius: 12px;
+  padding: 9px 10px;
+  background: rgba(81, 129, 184, 0.08);
+  color: var(--vk-blue-dark);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.participant-path-empty {
+  color: var(--muted);
+  background: rgba(245, 247, 250, 0.74);
+}
+
+.participant-path-peak {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  align-self: start;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--orange-dark);
+  font-size: 22px;
+  box-shadow:
+    0 0 0 8px rgba(242, 125, 50, 0.1),
+    0 16px 34px rgba(242, 125, 50, 0.2);
+}
+
+@keyframes path-zone-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc((4 - var(--zone-index)) * 7px + 12px));
+  }
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2185,6 +2413,15 @@ body.is-dragging-card * {
     grid-template-columns: 1fr;
   }
 
+  .participant-path {
+    min-width: 760px;
+  }
+
+  .participant-path-road {
+    grid-template-columns: repeat(5, minmax(132px, 1fr)) 38px;
+    gap: 10px;
+  }
+
   .hero-card {
     border-radius: 16px;
   }
@@ -2282,6 +2519,48 @@ body.is-dragging-card * {
   .archive-achievement-grid,
   .goal-completion-grid {
     grid-template-columns: 1fr;
+  }
+
+  .participant-path-panel {
+    gap: 12px;
+    padding: 15px;
+    border-radius: 16px;
+  }
+
+  .participant-path {
+    min-width: 690px;
+  }
+
+  .participant-path-road {
+    min-height: 252px;
+    padding-top: 20px;
+  }
+
+  .participant-path-road::before {
+    right: 48px;
+    bottom: 66px;
+  }
+
+  .participant-path-zone {
+    min-height: 170px;
+    padding: 10px;
+  }
+
+  .participant-path-zone-header strong {
+    font-size: 13px;
+  }
+
+  .participant-path-person {
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 8px;
+    min-height: 52px;
+    padding: 7px;
+  }
+
+  .participant-path-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
   }
 
   .goal-completion-card {
