@@ -125,6 +125,22 @@ function mergeParticipants(currentParticipants = [], incomingParticipants = [], 
 }
 
 function mergeParticipant(currentParticipant = {}, incomingParticipant = {}) {
+  const currentGoalArchivedAt = Number(currentParticipant.goalArchivedAt || 0);
+  const incomingGoalArchivedAt = Number(incomingParticipant.goalArchivedAt || 0);
+  const currentGoalCycleStartedAt = Number(currentParticipant.goalCycleStartedAt || 0);
+  const incomingGoalCycleStartedAt = Number(incomingParticipant.goalCycleStartedAt || 0);
+  const useIncomingGoalState =
+    incomingGoalArchivedAt > currentGoalArchivedAt ||
+    incomingGoalCycleStartedAt > currentGoalCycleStartedAt;
+  const useCurrentGoalState =
+    currentGoalArchivedAt > incomingGoalArchivedAt ||
+    currentGoalCycleStartedAt > incomingGoalCycleStartedAt;
+  const goalSource = useIncomingGoalState
+    ? incomingParticipant
+    : useCurrentGoalState
+      ? currentParticipant
+      : incomingParticipant;
+
   return {
     ...currentParticipant,
     ...incomingParticipant,
@@ -132,16 +148,44 @@ function mergeParticipant(currentParticipant = {}, incomingParticipant = {}) {
     picture: incomingParticipant.picture || currentParticipant.picture || "",
     email: incomingParticipant.email || currentParticipant.email || "",
     authProvider: incomingParticipant.authProvider || currentParticipant.authProvider || "",
-    goal: incomingParticipant.goal || currentParticipant.goal || "",
-    deadline: incomingParticipant.deadline || currentParticipant.deadline || "",
-    deadlineLocked: Boolean(incomingParticipant.deadlineLocked || currentParticipant.deadlineLocked),
+    goal: hasOwn(goalSource, "goal") ? goalSource.goal || "" : currentParticipant.goal || "",
+    deadline: hasOwn(goalSource, "deadline") ? goalSource.deadline || "" : currentParticipant.deadline || "",
+    deadlineLocked: Boolean(goalSource.deadlineLocked),
+    goalCycleStartedAt: Math.max(currentGoalCycleStartedAt, incomingGoalCycleStartedAt),
+    goalArchivedAt: Math.max(currentGoalArchivedAt, incomingGoalArchivedAt),
+    taskListUpdatedAt: Math.max(
+      getParticipantTaskListUpdatedAt(currentParticipant),
+      getParticipantTaskListUpdatedAt(incomingParticipant),
+    ),
     deadlineWarningDismissedFor:
       incomingParticipant.deadlineWarningDismissedFor || currentParticipant.deadlineWarningDismissedFor || "",
     onboardingCompleted: Boolean(incomingParticipant.onboardingCompleted || currentParticipant.onboardingCompleted),
     archivedGoals: mergeById(currentParticipant.archivedGoals, incomingParticipant.archivedGoals),
-    tasks: chooseTaskList(currentParticipant.tasks, incomingParticipant.tasks),
-    completedGoalNotice: incomingParticipant.completedGoalNotice || currentParticipant.completedGoalNotice || null,
+    tasks: chooseTaskList(currentParticipant.tasks, incomingParticipant.tasks, currentParticipant, incomingParticipant),
+    completedGoalNotice: chooseCompletedGoalNotice(currentParticipant, incomingParticipant),
   };
+}
+
+function chooseCompletedGoalNotice(currentParticipant, incomingParticipant) {
+  const currentTime = Math.max(
+    Number(currentParticipant.goalArchivedAt || 0),
+    Number(currentParticipant.goalCycleStartedAt || 0),
+  );
+  const incomingTime = Math.max(
+    Number(incomingParticipant.goalArchivedAt || 0),
+    Number(incomingParticipant.goalCycleStartedAt || 0),
+  );
+  if (incomingTime >= currentTime && hasOwn(incomingParticipant, "completedGoalNotice")) {
+    return incomingParticipant.completedGoalNotice || null;
+  }
+  if (hasOwn(currentParticipant, "completedGoalNotice")) {
+    return currentParticipant.completedGoalNotice || null;
+  }
+  return null;
+}
+
+function hasOwn(source, key) {
+  return Object.prototype.hasOwnProperty.call(source || {}, key);
 }
 
 function mergeById(currentItems = [], incomingItems = []) {
@@ -155,8 +199,12 @@ function mergeById(currentItems = [], incomingItems = []) {
   return [...itemsById.values()];
 }
 
-function chooseTaskList(currentTasks = [], incomingTasks = []) {
-  if (incomingTasks.length === 0 && currentTasks.length > 0) return currentTasks;
+function chooseTaskList(currentTasks = [], incomingTasks = [], currentParticipant = {}, incomingParticipant = {}) {
+  const currentTaskListUpdatedAt = getParticipantTaskListUpdatedAt(currentParticipant);
+  const incomingTaskListUpdatedAt = getParticipantTaskListUpdatedAt(incomingParticipant);
+  if (incomingTasks.length === 0 && currentTasks.length > 0) {
+    return incomingTaskListUpdatedAt >= currentTaskListUpdatedAt ? [] : currentTasks;
+  }
   if (currentTasks.length === 0) return incomingTasks;
   const tasksById = new Map();
   currentTasks.forEach((task) => {
@@ -270,6 +318,14 @@ function getListUpdatedAt(items = []) {
 
 function getItemUpdatedAt(item = {}) {
   return Number(item.updatedAt || item.createdAt || 0);
+}
+
+function getParticipantTaskListUpdatedAt(participant = {}) {
+  return Math.max(
+    Number(participant.taskListUpdatedAt || 0),
+    Number(participant.goalArchivedAt || 0),
+    getListUpdatedAt(participant.tasks || []),
+  );
 }
 
 function normalizeEditableMap(value = {}) {

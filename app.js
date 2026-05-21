@@ -390,6 +390,9 @@ function normalizeState(candidate) {
     deadline: person.deadline || "",
     deadlineLocked: Boolean(person.deadlineLocked),
     deadlineWarningDismissedFor: person.deadlineWarningDismissedFor || "",
+    goalCycleStartedAt: Number(person.goalCycleStartedAt || 0),
+    goalArchivedAt: Number(person.goalArchivedAt || 0),
+    taskListUpdatedAt: Number(person.taskListUpdatedAt || 0),
     onboardingCompleted: Boolean(person.onboardingCompleted),
     completedGoalNotice: normalizeCompletedGoalNotice(person.completedGoalNotice),
     archivedGoals: Array.isArray(person.archivedGoals)
@@ -536,6 +539,9 @@ function migrateLegacyState() {
       passwordHash: "",
       goal: parsed.goal || "Моя цель",
       deadline: parsed.deadline || "",
+      goalCycleStartedAt: Date.now(),
+      goalArchivedAt: 0,
+      taskListUpdatedAt: Date.now(),
       archivedGoals: [],
       tasks: parsed.tasks.map((task) => ({
         id: crypto.randomUUID(),
@@ -746,6 +752,9 @@ function createGoogleParticipant({ email, name, picture, isNew }) {
     goal: "",
     deadline: "",
     deadlineLocked: false,
+    goalCycleStartedAt: Date.now(),
+    goalArchivedAt: 0,
+    taskListUpdatedAt: Date.now(),
     tasks: [],
     archivedGoals: [],
     onboardingCompleted: false,
@@ -1190,6 +1199,17 @@ function mergeSharedStates(baseState, nextState, options = {}) {
 function mergeParticipant(baseParticipant, nextParticipant) {
   if (!baseParticipant) return nextParticipant;
   if (!nextParticipant) return baseParticipant;
+  const baseGoalArchivedAt = Number(baseParticipant.goalArchivedAt || 0);
+  const nextGoalArchivedAt = Number(nextParticipant.goalArchivedAt || 0);
+  const baseGoalCycleStartedAt = Number(baseParticipant.goalCycleStartedAt || 0);
+  const nextGoalCycleStartedAt = Number(nextParticipant.goalCycleStartedAt || 0);
+  const useNextGoalState =
+    nextGoalArchivedAt > baseGoalArchivedAt ||
+    nextGoalCycleStartedAt > baseGoalCycleStartedAt;
+  const useBaseGoalState =
+    baseGoalArchivedAt > nextGoalArchivedAt ||
+    baseGoalCycleStartedAt > nextGoalCycleStartedAt;
+  const goalSource = useNextGoalState ? nextParticipant : useBaseGoalState ? baseParticipant : nextParticipant;
 
   return {
     ...baseParticipant,
@@ -1198,16 +1218,44 @@ function mergeParticipant(baseParticipant, nextParticipant) {
     picture: nextParticipant.picture || baseParticipant.picture || "",
     email: nextParticipant.email || baseParticipant.email || "",
     authProvider: nextParticipant.authProvider || baseParticipant.authProvider || "",
-    goal: nextParticipant.goal || baseParticipant.goal || "",
-    deadline: nextParticipant.deadline || baseParticipant.deadline || "",
-    deadlineLocked: Boolean(nextParticipant.deadlineLocked || baseParticipant.deadlineLocked),
+    goal: hasOwn(goalSource, "goal") ? goalSource.goal || "" : baseParticipant.goal || "",
+    deadline: hasOwn(goalSource, "deadline") ? goalSource.deadline || "" : baseParticipant.deadline || "",
+    deadlineLocked: Boolean(goalSource.deadlineLocked),
+    goalCycleStartedAt: Math.max(baseGoalCycleStartedAt, nextGoalCycleStartedAt),
+    goalArchivedAt: Math.max(baseGoalArchivedAt, nextGoalArchivedAt),
+    taskListUpdatedAt: Math.max(
+      getParticipantTaskListUpdatedAt(baseParticipant),
+      getParticipantTaskListUpdatedAt(nextParticipant),
+    ),
     deadlineWarningDismissedFor:
       nextParticipant.deadlineWarningDismissedFor || baseParticipant.deadlineWarningDismissedFor || "",
     onboardingCompleted: Boolean(nextParticipant.onboardingCompleted || baseParticipant.onboardingCompleted),
     archivedGoals: mergeById(baseParticipant.archivedGoals, nextParticipant.archivedGoals),
-    tasks: chooseTaskList(baseParticipant.tasks, nextParticipant.tasks),
-    completedGoalNotice: nextParticipant.completedGoalNotice || baseParticipant.completedGoalNotice || null,
+    tasks: chooseTaskList(baseParticipant.tasks, nextParticipant.tasks, baseParticipant, nextParticipant),
+    completedGoalNotice: chooseCompletedGoalNotice(baseParticipant, nextParticipant),
   };
+}
+
+function chooseCompletedGoalNotice(baseParticipant, nextParticipant) {
+  const baseTime = Math.max(
+    Number(baseParticipant.goalArchivedAt || 0),
+    Number(baseParticipant.goalCycleStartedAt || 0),
+  );
+  const nextTime = Math.max(
+    Number(nextParticipant.goalArchivedAt || 0),
+    Number(nextParticipant.goalCycleStartedAt || 0),
+  );
+  if (nextTime >= baseTime && hasOwn(nextParticipant, "completedGoalNotice")) {
+    return nextParticipant.completedGoalNotice || null;
+  }
+  if (hasOwn(baseParticipant, "completedGoalNotice")) {
+    return baseParticipant.completedGoalNotice || null;
+  }
+  return null;
+}
+
+function hasOwn(source, key) {
+  return Object.prototype.hasOwnProperty.call(source || {}, key);
 }
 
 function mergeById(baseItems = [], nextItems = []) {
@@ -1221,8 +1269,12 @@ function mergeById(baseItems = [], nextItems = []) {
   return [...itemsById.values()];
 }
 
-function chooseTaskList(baseTasks = [], nextTasks = []) {
-  if (nextTasks.length === 0 && baseTasks.length > 0) return baseTasks;
+function chooseTaskList(baseTasks = [], nextTasks = [], baseParticipant = {}, nextParticipant = {}) {
+  const baseTaskListUpdatedAt = getParticipantTaskListUpdatedAt(baseParticipant);
+  const nextTaskListUpdatedAt = getParticipantTaskListUpdatedAt(nextParticipant);
+  if (nextTasks.length === 0 && baseTasks.length > 0) {
+    return nextTaskListUpdatedAt >= baseTaskListUpdatedAt ? [] : baseTasks;
+  }
   if (baseTasks.length === 0) return nextTasks;
   const tasksById = new Map();
   baseTasks.forEach((task) => {
@@ -1333,6 +1385,14 @@ function getTaskListUpdatedAt(items = []) {
 
 function getItemUpdatedAt(item = {}) {
   return Number(item.updatedAt || item.createdAt || 0);
+}
+
+function getParticipantTaskListUpdatedAt(participant = {}) {
+  return Math.max(
+    Number(participant.taskListUpdatedAt || 0),
+    Number(participant.goalArchivedAt || 0),
+    getTaskListUpdatedAt(participant.tasks || []),
+  );
 }
 
 function getNewestAnnouncement(baseAnnouncement, nextAnnouncement) {
@@ -1487,6 +1547,9 @@ async function joinAsParticipant(source = {}) {
       goal: "",
       deadline: "",
       deadlineLocked: false,
+      goalCycleStartedAt: Date.now(),
+      goalArchivedAt: 0,
+      taskListUpdatedAt: Date.now(),
       tasks: [],
       archivedGoals: [],
       onboardingCompleted: false,
@@ -2110,6 +2173,8 @@ function archiveFinishedGoal(participant) {
   participant.deadline = "";
   participant.deadlineLocked = false;
   participant.tasks = [];
+  participant.goalArchivedAt = archivedAt;
+  participant.taskListUpdatedAt = archivedAt;
   return true;
 }
 
@@ -2134,6 +2199,12 @@ function updateGoal(participantId, goal) {
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId)) return;
 
+  if (goal && !hasActiveGoal(participant)) {
+    const now = Date.now();
+    participant.goalCycleStartedAt = now;
+    participant.goalArchivedAt = 0;
+    participant.taskListUpdatedAt = now;
+  }
   participant.goal = goal;
   scheduleSaveState();
   renderResults();
@@ -2146,6 +2217,9 @@ function updateDeadline(participantId, deadline) {
   participant.deadline = deadline;
   participant.deadlineLocked = Boolean(deadline);
   participant.deadlineWarningDismissedFor = "";
+  if (deadline && !participant.goalCycleStartedAt) {
+    participant.goalCycleStartedAt = Date.now();
+  }
   archiveFinishedGoal(participant);
   saveState();
   render();
@@ -2155,6 +2229,7 @@ function addTask(participantId, title) {
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId) || !title.trim()) return;
 
+  participant.taskListUpdatedAt = Date.now();
   participant.tasks.unshift(createTask(title.trim()));
   saveState();
   render();
@@ -2168,7 +2243,9 @@ function toggleTask(participantId, taskId, done) {
   if (!task || (Array.isArray(task.subtasks) && task.subtasks.length > 0) || isTaskComplete(task)) return;
 
   task.done = done;
-  task.updatedAt = Date.now();
+  const now = Date.now();
+  task.updatedAt = now;
+  participant.taskListUpdatedAt = now;
   reorderTasks(participant);
   archiveFinishedGoal(participant);
   saveState();
@@ -2192,6 +2269,9 @@ function normalizeParticipantTasks(participant) {
     }
   });
   reorderTasks(participant);
+  if (!participant.taskListUpdatedAt) {
+    participant.taskListUpdatedAt = getParticipantTaskListUpdatedAt(participant);
+  }
 }
 
 function reorderSubtasks(task) {
@@ -2218,6 +2298,7 @@ function addSubtask(participantId, taskId, title) {
   task.subtasksHidden = false;
   task.done = false;
   task.updatedAt = now;
+  participant.taskListUpdatedAt = now;
   saveState();
   render();
 }
@@ -2236,6 +2317,7 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
   subtask.done = done;
   subtask.updatedAt = now;
   task.updatedAt = now;
+  participant.taskListUpdatedAt = now;
   reorderSubtasks(task);
   if (task.subtasks.length > 0 && task.subtasks.every((item) => item.done)) {
     task.subtasksHidden = true;
@@ -2254,7 +2336,9 @@ function deleteSubtask(participantId, taskId, subtaskId) {
   if (!task || !Array.isArray(task.subtasks)) return;
 
   task.subtasks = task.subtasks.filter((subtask) => subtask.id !== subtaskId);
-  task.updatedAt = Date.now();
+  const now = Date.now();
+  task.updatedAt = now;
+  participant.taskListUpdatedAt = now;
   reorderSubtasks(task);
   reorderTasks(participant);
   archiveFinishedGoal(participant);
@@ -2276,7 +2360,9 @@ function toggleSubtasksVisibility(participantId, taskId) {
   }
 
   task.subtasksHidden = !task.subtasksHidden;
-  task.updatedAt = Date.now();
+  const now = Date.now();
+  task.updatedAt = now;
+  participant.taskListUpdatedAt = now;
   saveState();
   render();
 }
@@ -2292,6 +2378,9 @@ function editTask(participantId, taskId) {
   if (!newTitle || !newTitle.trim()) return;
 
   task.title = newTitle.trim();
+  const now = Date.now();
+  task.updatedAt = now;
+  participant.taskListUpdatedAt = now;
   saveState();
   render();
 }
@@ -2448,7 +2537,9 @@ function moveDraggedTask(participantId, draggedTaskId, targetTaskId) {
 
   const [draggedTask] = participant.tasks.splice(draggedIndex, 1);
   participant.tasks.splice(targetIndex, 0, draggedTask);
-  draggedTask.updatedAt = Date.now();
+  const now = Date.now();
+  draggedTask.updatedAt = now;
+  participant.taskListUpdatedAt = now;
   saveState();
   render();
 }
@@ -2562,6 +2653,7 @@ function moveDraggedSubtask(participantId, taskId, draggedSubtaskId, targetSubta
   const now = Date.now();
   draggedSubtask.updatedAt = now;
   task.updatedAt = now;
+  participant.taskListUpdatedAt = now;
   reorderSubtasks(task);
   saveState();
   render();
@@ -2572,6 +2664,7 @@ function deleteTask(participantId, taskId) {
   if (!participant || !isActive(participantId)) return;
 
   participant.tasks = participant.tasks.filter((task) => task.id !== taskId);
+  participant.taskListUpdatedAt = Date.now();
   archiveFinishedGoal(participant);
   saveState();
   render();
@@ -3292,11 +3385,16 @@ function renderProfile() {
     nextGoalPanel.hidden = !canStartNextGoal;
   }
   newGoalButton?.addEventListener("click", () => {
+    const now = Date.now();
     if (participant.completedGoalNotice) {
       participant.completedGoalNotice = null;
-      saveState();
-      renderResults();
     }
+    participant.goalCycleStartedAt = now;
+    participant.goalArchivedAt = 0;
+    participant.tasks = [];
+    participant.taskListUpdatedAt = now;
+    saveState();
+    renderResults();
     goalInput.focus();
     goalInput.scrollIntoView({ block: "center", behavior: "smooth" });
   });
@@ -3442,6 +3540,8 @@ function createSubtaskCard(participantId, taskId, subtask, editable) {
       subtask.title = v;
       subtask.updatedAt = now;
       if (task) task.updatedAt = now;
+      const participant = findParticipant(participantId);
+      if (participant) participant.taskListUpdatedAt = now;
       saveState();
       render();
     });
@@ -3577,8 +3677,11 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
       const v = input.value && input.value.trim();
       if (!v) return;
       if (isTaskComplete(task)) return;
+      const now = Date.now();
       task.title = v;
-      task.updatedAt = Date.now();
+      task.updatedAt = now;
+      const participant = findParticipant(participantId);
+      if (participant) participant.taskListUpdatedAt = now;
       saveState();
       render();
     });
