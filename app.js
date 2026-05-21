@@ -1250,11 +1250,18 @@ function mergeTask(baseTask, nextTask) {
   const useNextTask = getItemUpdatedAt(nextTask) >= getItemUpdatedAt(baseTask);
   const preferredTask = useNextTask ? nextTask : baseTask;
   const fallbackTask = useNextTask ? baseTask : nextTask;
+  const subtasks = mergeSubtasks(baseTask.subtasks, nextTask.subtasks);
 
   return {
     ...fallbackTask,
     ...preferredTask,
-    subtasks: mergeSubtasks(baseTask.subtasks, nextTask.subtasks),
+    done: Boolean(baseTask.done || nextTask.done),
+    subtasksHidden: Boolean(
+      preferredTask.subtasksHidden ||
+        fallbackTask.subtasksHidden ||
+        isTaskComplete({ ...fallbackTask, ...preferredTask, subtasks }),
+    ),
+    subtasks,
   };
 }
 
@@ -1266,12 +1273,7 @@ function mergeSubtasks(baseSubtasks = [], nextSubtasks = []) {
   nextSubtasks.forEach((subtask) => {
     if (!subtask?.id) return;
     const currentSubtask = subtasksById.get(subtask.id);
-    subtasksById.set(
-      subtask.id,
-      !currentSubtask || getItemUpdatedAt(subtask) >= getItemUpdatedAt(currentSubtask)
-        ? subtask
-        : currentSubtask,
-    );
+    subtasksById.set(subtask.id, mergeSubtask(currentSubtask, subtask));
   });
 
   const preferredOrder = getTaskListUpdatedAt(nextSubtasks) >= getTaskListUpdatedAt(baseSubtasks)
@@ -1284,6 +1286,20 @@ function mergeSubtasks(baseSubtasks = [], nextSubtasks = []) {
     subtasksById.delete(subtask.id);
   });
   return [...orderedSubtasks, ...subtasksById.values()];
+}
+
+function mergeSubtask(baseSubtask, nextSubtask) {
+  if (!baseSubtask) return nextSubtask;
+  if (!nextSubtask) return baseSubtask;
+
+  const useNextSubtask = getItemUpdatedAt(nextSubtask) >= getItemUpdatedAt(baseSubtask);
+  const preferredSubtask = useNextSubtask ? nextSubtask : baseSubtask;
+  const fallbackSubtask = useNextSubtask ? baseSubtask : nextSubtask;
+  return {
+    ...fallbackSubtask,
+    ...preferredSubtask,
+    done: Boolean(baseSubtask.done || nextSubtask.done),
+  };
 }
 
 function getTaskListUpdatedAt(items = []) {

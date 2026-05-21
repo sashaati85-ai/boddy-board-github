@@ -182,11 +182,18 @@ function mergeTask(currentTask = {}, incomingTask = {}) {
   const useIncomingTask = getItemUpdatedAt(incomingTask) >= getItemUpdatedAt(currentTask);
   const preferredTask = useIncomingTask ? incomingTask : currentTask;
   const fallbackTask = useIncomingTask ? currentTask : incomingTask;
+  const subtasks = mergeSubtasks(currentTask.subtasks, incomingTask.subtasks);
 
   return {
     ...fallbackTask,
     ...preferredTask,
-    subtasks: mergeSubtasks(currentTask.subtasks, incomingTask.subtasks),
+    done: Boolean(currentTask.done || incomingTask.done),
+    subtasksHidden: Boolean(
+      preferredTask.subtasksHidden ||
+        fallbackTask.subtasksHidden ||
+        (subtasks.length > 0 && subtasks.every((subtask) => Boolean(subtask.done))),
+    ),
+    subtasks,
   };
 }
 
@@ -198,12 +205,7 @@ function mergeSubtasks(currentSubtasks = [], incomingSubtasks = []) {
   incomingSubtasks.forEach((subtask) => {
     if (!subtask?.id) return;
     const currentSubtask = subtasksById.get(subtask.id);
-    subtasksById.set(
-      subtask.id,
-      !currentSubtask || getItemUpdatedAt(subtask) >= getItemUpdatedAt(currentSubtask)
-        ? subtask
-        : currentSubtask,
-    );
+    subtasksById.set(subtask.id, mergeSubtask(currentSubtask, subtask));
   });
 
   const preferredOrder = getListUpdatedAt(incomingSubtasks) >= getListUpdatedAt(currentSubtasks)
@@ -216,6 +218,20 @@ function mergeSubtasks(currentSubtasks = [], incomingSubtasks = []) {
     subtasksById.delete(subtask.id);
   });
   return [...orderedSubtasks, ...subtasksById.values()];
+}
+
+function mergeSubtask(currentSubtask = null, incomingSubtask = null) {
+  if (!currentSubtask) return incomingSubtask;
+  if (!incomingSubtask) return currentSubtask;
+
+  const useIncomingSubtask = getItemUpdatedAt(incomingSubtask) >= getItemUpdatedAt(currentSubtask);
+  const preferredSubtask = useIncomingSubtask ? incomingSubtask : currentSubtask;
+  const fallbackSubtask = useIncomingSubtask ? currentSubtask : incomingSubtask;
+  return {
+    ...fallbackSubtask,
+    ...preferredSubtask,
+    done: Boolean(currentSubtask.done || incomingSubtask.done),
+  };
 }
 
 function getListUpdatedAt(items = []) {
