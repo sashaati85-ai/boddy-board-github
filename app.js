@@ -476,7 +476,7 @@ function normalizeState(candidate) {
     onboardingCompleted: Boolean(person.onboardingCompleted),
     completedGoalNotice: normalizeCompletedGoalNotice(person.completedGoalNotice),
     archivedGoals: Array.isArray(person.archivedGoals)
-      ? person.archivedGoals.map((goal) => ({
+      ? sortArchivedGoals(person.archivedGoals.map((goal) => ({
           id: goal.id || crypto.randomUUID(),
           title: goal.title || "Цель без названия",
           deadline: goal.deadline || "",
@@ -490,7 +490,7 @@ function normalizeState(candidate) {
           statusTitle: goal.statusTitle || "",
           statusIcon: goal.statusIcon || "",
           archivedAt: goal.archivedAt || Date.now(),
-        }))
+        })))
       : [],
     tasks: Array.isArray(person.tasks)
       ? person.tasks.map((task) => ({
@@ -1372,7 +1372,15 @@ function mergeById(baseItems = [], nextItems = []) {
   nextItems.forEach((item) => {
     if (item?.id) itemsById.set(item.id, item);
   });
-  return [...itemsById.values()];
+  return sortArchivedGoals([...itemsById.values()]);
+}
+
+function sortArchivedGoals(goals = []) {
+  return [...goals].sort((a, b) => getArchivedGoalTime(b) - getArchivedGoalTime(a));
+}
+
+function getArchivedGoalTime(goal = {}) {
+  return Math.max(Number(goal.completedAt || 0), Number(goal.archivedAt || 0));
 }
 
 function chooseTaskList(baseTasks = [], nextTasks = [], baseParticipant = {}, nextParticipant = {}) {
@@ -3886,7 +3894,7 @@ function renderGoalArchive(container, participant) {
   if (!container) return;
   container.replaceChildren();
 
-  const archivedGoals = Array.isArray(participant.archivedGoals) ? participant.archivedGoals : [];
+  const archivedGoals = sortArchivedGoals(Array.isArray(participant.archivedGoals) ? participant.archivedGoals : []);
   if (archivedGoals.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";

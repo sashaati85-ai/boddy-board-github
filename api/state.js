@@ -4,7 +4,9 @@ function normalizeSharedState(value) {
   const source = value && typeof value === "object" ? value : {};
 
   return {
-    participants: Array.isArray(source.participants) ? source.participants : [],
+    participants: Array.isArray(source.participants)
+      ? source.participants.map(normalizeParticipant)
+      : [],
     adminPasswordHashV2: source.adminPasswordHashV2 || source.adminPasswordHash || "",
     adminPasswordChanged: Boolean(source.adminPasswordChanged),
     registrationPasswordHash: source.registrationPasswordHash || "",
@@ -18,6 +20,13 @@ function normalizeSharedState(value) {
       : [],
     allowEmptyParticipants: Boolean(source.allowEmptyParticipants),
     allowEmptyRegistrationPassword: Boolean(source.allowEmptyRegistrationPassword),
+  };
+}
+
+function normalizeParticipant(participant = {}) {
+  return {
+    ...participant,
+    archivedGoals: sortArchivedGoals(Array.isArray(participant.archivedGoals) ? participant.archivedGoals : []),
   };
 }
 
@@ -233,7 +242,15 @@ function mergeById(currentItems = [], incomingItems = []) {
   incomingItems.forEach((item) => {
     if (item?.id) itemsById.set(item.id, item);
   });
-  return [...itemsById.values()];
+  return sortArchivedGoals([...itemsById.values()]);
+}
+
+function sortArchivedGoals(goals = []) {
+  return [...goals].sort((a, b) => getArchivedGoalTime(b) - getArchivedGoalTime(a));
+}
+
+function getArchivedGoalTime(goal = {}) {
+  return Math.max(Number(goal.completedAt || 0), Number(goal.archivedAt || 0));
 }
 
 function chooseTaskList(currentTasks = [], incomingTasks = [], currentParticipant = {}, incomingParticipant = {}) {
