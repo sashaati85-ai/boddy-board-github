@@ -424,6 +424,7 @@ function normalizeState(candidate) {
         }))
       : [],
   }));
+  participants.forEach(normalizeParticipantTasks);
 
   return {
     activeParticipantId: "",
@@ -1240,7 +1241,7 @@ function chooseTaskList(baseTasks = [], nextTasks = []) {
     if (mergedTask) orderedTasks.push(mergedTask);
     tasksById.delete(task.id);
   });
-  return [...orderedTasks, ...tasksById.values()];
+  return orderTasksByCompletion([...orderedTasks, ...tasksById.values()]);
 }
 
 function mergeTask(baseTask, nextTask) {
@@ -1256,11 +1257,9 @@ function mergeTask(baseTask, nextTask) {
     ...fallbackTask,
     ...preferredTask,
     done: Boolean(baseTask.done || nextTask.done),
-    subtasksHidden: Boolean(
-      preferredTask.subtasksHidden ||
-        fallbackTask.subtasksHidden ||
-        isTaskComplete({ ...fallbackTask, ...preferredTask, subtasks }),
-    ),
+    subtasksHidden: isTaskComplete({ ...fallbackTask, ...preferredTask, subtasks })
+      ? true
+      : Boolean(preferredTask.subtasksHidden),
     subtasks,
   };
 }
@@ -1285,7 +1284,33 @@ function mergeSubtasks(baseSubtasks = [], nextSubtasks = []) {
     if (mergedSubtask) orderedSubtasks.push(mergedSubtask);
     subtasksById.delete(subtask.id);
   });
-  return [...orderedSubtasks, ...subtasksById.values()];
+  return orderSubtasksByCompletion([...orderedSubtasks, ...subtasksById.values()]);
+}
+
+function orderTasksByCompletion(tasks = []) {
+  const incomplete = [];
+  const complete = [];
+  tasks.forEach((task) => {
+    if (isTaskComplete(task)) {
+      complete.push(task);
+    } else {
+      incomplete.push(task);
+    }
+  });
+  return [...incomplete, ...complete];
+}
+
+function orderSubtasksByCompletion(subtasks = []) {
+  const incomplete = [];
+  const complete = [];
+  subtasks.forEach((subtask) => {
+    if (subtask.done) {
+      complete.push(subtask);
+    } else {
+      incomplete.push(subtask);
+    }
+  });
+  return [...incomplete, ...complete];
 }
 
 function mergeSubtask(baseSubtask, nextSubtask) {
@@ -2140,7 +2165,7 @@ function toggleTask(participantId, taskId, done) {
   if (!participant || !isActive(participantId)) return;
 
   const task = participant.tasks.find((item) => item.id === taskId);
-  if (!task || (Array.isArray(task.subtasks) && task.subtasks.length > 0)) return;
+  if (!task || (Array.isArray(task.subtasks) && task.subtasks.length > 0) || isTaskComplete(task)) return;
 
   task.done = done;
   task.updatedAt = Date.now();
@@ -2151,31 +2176,27 @@ function toggleTask(participantId, taskId, done) {
 }
 
 function reorderTasks(participant) {
-  const incomplete = [];
-  const complete = [];
+  participant.tasks = orderTasksByCompletion(participant.tasks);
+}
+
+function normalizeParticipantTasks(participant) {
+  if (!participant || !Array.isArray(participant.tasks)) return;
+
   participant.tasks.forEach((task) => {
+    if (!Array.isArray(task.subtasks)) {
+      task.subtasks = [];
+    }
+    reorderSubtasks(task);
     if (isTaskComplete(task)) {
-      complete.push(task);
-    } else {
-      incomplete.push(task);
+      task.subtasksHidden = true;
     }
   });
-  participant.tasks = [...incomplete, ...complete];
+  reorderTasks(participant);
 }
 
 function reorderSubtasks(task) {
   if (!Array.isArray(task.subtasks)) return;
-
-  const incomplete = [];
-  const complete = [];
-  task.subtasks.forEach((subtask) => {
-    if (subtask.done) {
-      complete.push(subtask);
-    } else {
-      incomplete.push(subtask);
-    }
-  });
-  task.subtasks = [...incomplete, ...complete];
+  task.subtasks = orderSubtasksByCompletion(task.subtasks);
 }
 
 function addSubtask(participantId, taskId, title) {
@@ -2183,7 +2204,7 @@ function addSubtask(participantId, taskId, title) {
   if (!participant || !isActive(participantId) || !title.trim()) return;
 
   const task = participant.tasks.find((item) => item.id === taskId);
-  if (!task) return;
+  if (!task || isTaskComplete(task)) return;
 
   const now = Date.now();
   task.subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
@@ -2265,7 +2286,7 @@ function editTask(participantId, taskId) {
   if (!participant || !isActive(participantId)) return;
 
   const task = participant.tasks.find((item) => item.id === taskId);
-  if (!task) return;
+  if (!task || isTaskComplete(task)) return;
 
   const newTitle = window.prompt("Изменить текст шага", task.title);
   if (!newTitle || !newTitle.trim()) return;
@@ -2280,6 +2301,8 @@ function beginCardDrag(event, participantId, taskId) {
   if (event.target.closest("button, input, label, textarea")) return;
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId)) return;
+  const task = participant.tasks.find((item) => item.id === taskId);
+  if (!task || isTaskComplete(task)) return;
   const card = event.currentTarget;
   const clientX = event.clientX;
   const clientY = event.clientY;
@@ -2421,9 +2444,11 @@ function moveDraggedTask(participantId, draggedTaskId, targetTaskId) {
   const draggedIndex = participant.tasks.findIndex((item) => item.id === draggedTaskId);
   const targetIndex = participant.tasks.findIndex((item) => item.id === targetTaskId);
   if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) return;
+  if (isTaskComplete(participant.tasks[draggedIndex]) || isTaskComplete(participant.tasks[targetIndex])) return;
 
   const [draggedTask] = participant.tasks.splice(draggedIndex, 1);
   participant.tasks.splice(targetIndex, 0, draggedTask);
+  draggedTask.updatedAt = Date.now();
   saveState();
   render();
 }
@@ -2436,6 +2461,9 @@ function beginSubtaskDrag(event, participantId, taskId, subtaskId) {
 
   const task = participant.tasks.find((item) => item.id === taskId);
   if (!task?.subtasks?.some((subtask) => subtask.id === subtaskId)) return;
+  if (isTaskComplete(task)) return;
+  const subtask = task.subtasks.find((item) => item.id === subtaskId);
+  if (!subtask || subtask.done) return;
 
   event.stopPropagation();
   const card = event.currentTarget;
@@ -2522,10 +2550,12 @@ function moveDraggedSubtask(participantId, taskId, draggedSubtaskId, targetSubta
 
   const task = participant.tasks.find((item) => item.id === taskId);
   if (!task || !Array.isArray(task.subtasks)) return;
+  if (isTaskComplete(task)) return;
 
   const draggedIndex = task.subtasks.findIndex((item) => item.id === draggedSubtaskId);
   const targetIndex = task.subtasks.findIndex((item) => item.id === targetSubtaskId);
   if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) return;
+  if (task.subtasks[draggedIndex].done || task.subtasks[targetIndex].done) return;
 
   const [draggedSubtask] = task.subtasks.splice(draggedIndex, 1);
   task.subtasks.splice(targetIndex, 0, draggedSubtask);
@@ -3367,8 +3397,8 @@ function createSubtaskCard(participantId, taskId, subtask, editable) {
   card.classList.toggle("is-done", Boolean(subtask.done));
   card.querySelector(".card-title").textContent = subtask.title;
   checkbox.checked = Boolean(subtask.done);
-  checkbox.disabled = !editable;
-  editButton.hidden = !editable;
+  checkbox.disabled = !editable || subtask.done;
+  editButton.hidden = !editable || subtask.done;
 
   checkbox.addEventListener("change", () => toggleSubtask(participantId, taskId, subtask.id, checkbox.checked));
   card.addEventListener("pointerdown", (event) => beginSubtaskDrag(event, participantId, taskId, subtask.id));
@@ -3468,8 +3498,8 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   card.classList.toggle("is-done", completed);
   card.querySelector(".card-title").textContent = task.title;
   checkbox.checked = completed;
-  checkbox.disabled = !editable || subtasks.length > 0;
-  editButton.hidden = !editable;
+  checkbox.disabled = !editable || subtasks.length > 0 || completed;
+  editButton.hidden = !editable || completed;
   completeBadge.hidden = !completed;
   addSubtaskButton.hidden = !editable || completed;
   subtaskToggle.hidden = subtasks.length === 0 || completed;
@@ -3546,6 +3576,7 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
     save.addEventListener("click", () => {
       const v = input.value && input.value.trim();
       if (!v) return;
+      if (isTaskComplete(task)) return;
       task.title = v;
       task.updatedAt = Date.now();
       saveState();

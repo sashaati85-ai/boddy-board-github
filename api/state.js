@@ -175,7 +175,7 @@ function chooseTaskList(currentTasks = [], incomingTasks = []) {
     if (mergedTask) orderedTasks.push(mergedTask);
     tasksById.delete(task.id);
   });
-  return [...orderedTasks, ...tasksById.values()];
+  return orderTasksByCompletion([...orderedTasks, ...tasksById.values()]);
 }
 
 function mergeTask(currentTask = {}, incomingTask = {}) {
@@ -188,11 +188,9 @@ function mergeTask(currentTask = {}, incomingTask = {}) {
     ...fallbackTask,
     ...preferredTask,
     done: Boolean(currentTask.done || incomingTask.done),
-    subtasksHidden: Boolean(
-      preferredTask.subtasksHidden ||
-        fallbackTask.subtasksHidden ||
-        (subtasks.length > 0 && subtasks.every((subtask) => Boolean(subtask.done))),
-    ),
+    subtasksHidden: subtasks.length > 0 && subtasks.every((subtask) => Boolean(subtask.done))
+      ? true
+      : Boolean(preferredTask.subtasksHidden),
     subtasks,
   };
 }
@@ -217,7 +215,39 @@ function mergeSubtasks(currentSubtasks = [], incomingSubtasks = []) {
     if (mergedSubtask) orderedSubtasks.push(mergedSubtask);
     subtasksById.delete(subtask.id);
   });
-  return [...orderedSubtasks, ...subtasksById.values()];
+  return orderSubtasksByCompletion([...orderedSubtasks, ...subtasksById.values()]);
+}
+
+function orderTasksByCompletion(tasks = []) {
+  const incomplete = [];
+  const complete = [];
+  tasks.forEach((task) => {
+    if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+      if (task.subtasks.every((subtask) => Boolean(subtask.done))) {
+        complete.push(task);
+      } else {
+        incomplete.push(task);
+      }
+    } else if (task.done) {
+      complete.push(task);
+    } else {
+      incomplete.push(task);
+    }
+  });
+  return [...incomplete, ...complete];
+}
+
+function orderSubtasksByCompletion(subtasks = []) {
+  const incomplete = [];
+  const complete = [];
+  subtasks.forEach((subtask) => {
+    if (subtask.done) {
+      complete.push(subtask);
+    } else {
+      incomplete.push(subtask);
+    }
+  });
+  return [...incomplete, ...complete];
 }
 
 function mergeSubtask(currentSubtask = null, incomingSubtask = null) {
