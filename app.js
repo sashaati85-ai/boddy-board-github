@@ -3969,6 +3969,7 @@ function renderParticipantPath() {
     zone.className = "participant-path-zone";
     zone.dataset.status = tier.key;
     zone.style.setProperty("--zone-index", String(zoneIndex));
+    zone.style.setProperty("--zone-offset", `${zoneIndex * -12}px`);
     header.className = "participant-path-zone-header";
     title.textContent = `${tier.icon} ${PATH_ZONE_TITLES[tier.key] || tier.title}`;
     range.textContent = formatPathZoneRange(tier);
@@ -3989,7 +3990,7 @@ function renderParticipantPath() {
     if (zoneParticipants.length === 0) {
       const empty = document.createElement("p");
       empty.className = "participant-path-empty";
-      empty.textContent = "Пока пусто";
+      empty.textContent = "Следующий этап роста";
       members.append(empty);
     }
 
