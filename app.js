@@ -75,6 +75,7 @@ let lastLocalWriteAt = 0;
 let scheduledSaveTimer = 0;
 let pendingDeadlineConfirmation = null;
 const readonlySubtasksOpen = new Set();
+const expandedArchiveParticipants = new Set();
 let pendingGoalCompletion = null;
 const LOCAL_WRITE_GRACE_MS = 3000;
 
@@ -3894,7 +3895,10 @@ function renderGoalArchive(container, participant) {
     return;
   }
 
-  archivedGoals.forEach((goal) => {
+  const isExpanded = expandedArchiveParticipants.has(participant.id);
+  const visibleGoals = isExpanded ? archivedGoals : archivedGoals.slice(0, 1);
+
+  visibleGoals.forEach((goal) => {
     const card = document.createElement("article");
     const main = document.createElement("div");
     const title = document.createElement("strong");
@@ -3944,6 +3948,27 @@ function renderGoalArchive(container, participant) {
 
     container.append(card);
   });
+
+  if (archivedGoals.length > 1) {
+    const toggleButton = document.createElement("button");
+    toggleButton.className = "archive-toggle";
+    toggleButton.type = "button";
+    toggleButton.textContent = isExpanded
+      ? "Свернуть"
+      : `Посмотреть все (${archivedGoals.length})`;
+    toggleButton.addEventListener("click", () => {
+      if (expandedArchiveParticipants.has(participant.id)) {
+        expandedArchiveParticipants.delete(participant.id);
+      } else {
+        expandedArchiveParticipants.add(participant.id);
+      }
+      render();
+      requestAnimationFrame(() => {
+        document.querySelector(".goal-archive")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
+    });
+    container.append(toggleButton);
+  }
 }
 
 function createArchiveMetric(icon, label, value) {

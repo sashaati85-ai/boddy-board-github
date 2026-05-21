@@ -1165,6 +1165,24 @@ textarea:focus {
   font-weight: 850;
 }
 
+.archive-toggle {
+  justify-self: start;
+  min-height: 38px;
+  border: 1px solid rgba(81, 129, 184, 0.18);
+  border-radius: 999px;
+  padding: 0 14px;
+  background: #fff;
+  color: var(--vk-blue-dark);
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(21, 32, 43, 0.05);
+}
+
+.archive-toggle:hover {
+  border-color: rgba(81, 129, 184, 0.32);
+  background: var(--soft);
+}
+
 .next-goal-panel {
   display: grid;
   gap: 10px;
