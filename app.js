@@ -2379,7 +2379,8 @@ function addTask(participantId, title) {
   if (!participant || !isActive(participantId) || !title.trim()) return;
 
   participant.taskListUpdatedAt = Date.now();
-  participant.tasks.unshift(createTask(title.trim()));
+  participant.tasks.push(createTask(title.trim()));
+  reorderTasks(participant);
   saveState();
   render();
 }
@@ -2442,7 +2443,7 @@ function addSubtask(participantId, taskId, title) {
 
   const now = Date.now();
   task.subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
-  task.subtasks.unshift({
+  task.subtasks.push({
     id: crypto.randomUUID(),
     title: title.trim(),
     done: false,
@@ -2453,6 +2454,8 @@ function addSubtask(participantId, taskId, title) {
   task.done = false;
   task.updatedAt = now;
   participant.taskListUpdatedAt = now;
+  reorderSubtasks(task);
+  reorderTasks(participant);
   saveState();
   render();
 }
