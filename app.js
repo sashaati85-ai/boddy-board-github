@@ -3121,15 +3121,24 @@ function renderResults() {
   }
 
   const rankedParticipants = getSortedParticipants();
-  const visibleParticipants = rankedParticipants.filter(hasLeaderboardActivity).slice(0, 3);
+  const championParticipants = rankedParticipants.filter((participant) =>
+    Boolean(getActiveCompletedGoalNotice(participant)),
+  );
+  const activeParticipants = rankedParticipants
+    .filter((participant) => !getActiveCompletedGoalNotice(participant) && hasLeaderboardActivity(participant))
+    .slice(0, 3);
 
-  if (visibleParticipants.length === 0) {
+  if (championParticipants.length === 0 && activeParticipants.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
     empty.textContent = "Пока никто не выполнил шаги.";
     resultChart.append(empty);
   } else {
-    visibleParticipants.forEach((participant, index) => {
+    championParticipants.forEach((participant) => {
+      const progress = getDashboardProgress(participant);
+      renderChartRow(participant, progress, 1);
+    });
+    activeParticipants.forEach((participant, index) => {
       const progress = getDashboardProgress(participant);
       renderChartRow(participant, progress, index + 1);
     });
