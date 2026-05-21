@@ -2897,6 +2897,16 @@ function getCompletedActionCount(tasks = []) {
   }, 0);
 }
 
+function getActionProgress(tasks = []) {
+  const total = tasks.reduce((count, task) => {
+    const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+    return count + (subtasks.length > 0 ? subtasks.length : 1);
+  }, 0);
+  const done = getCompletedActionCount(tasks);
+  const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+  return { total, done, percent };
+}
+
 function isDeadlineExpired(deadline) {
   if (!deadline) return false;
   const [year, month, day] = deadline.split("-").map(Number);
@@ -3456,23 +3466,30 @@ function renderResults() {
     });
   }
 
-  const tableParticipants = rankedParticipants.filter(shouldShowInResultsTable);
+  const tableParticipants = getResultsTableParticipants();
   if (tableParticipants.length === 0) {
     renderEmptyResultsTable("Здесь появятся участники, которые указали цель и дату.");
     return;
   }
 
   tableParticipants.forEach((participant) => {
-    const progress = getDashboardProgress(participant);
+    const progress = getActionProgress(participant.tasks);
     renderTableRow(participant, progress);
   });
 }
 
+function getResultsTableParticipants() {
+  return state.participants
+    .filter(shouldShowInResultsTable)
+    .sort((a, b) => {
+      const progressDiff = getActionProgress(b.tasks).percent - getActionProgress(a.tasks).percent;
+      if (progressDiff !== 0) return progressDiff;
+      return a.name.localeCompare(b.name, "ru");
+    });
+}
+
 function shouldShowInResultsTable(participant) {
-  return Boolean(
-    getActiveCompletedGoalNotice(participant) ||
-      (participant.goal?.trim() && participant.deadline),
-  );
+  return Boolean(participant.goal?.trim() && participant.deadline);
 }
 
 function renderEmptyResultsTable(message) {
@@ -3594,17 +3611,12 @@ function renderTableRow(participant, progress) {
     avatar.alt = participant.picture ? `Фото ${participant.name}` : "";
   }
   nameButton.addEventListener("click", () => viewParticipant(participant.id));
-  const completedNotice = getActiveCompletedGoalNotice(participant);
-  row.querySelector(".table-goal").textContent = completedNotice
-    ? `${formatCompletedDate(completedNotice.completedAt)} выполнил свою цель`
-    : participant.goal || "Цель ещё не указана";
+  row.querySelector(".table-goal").textContent = participant.goal || "Цель ещё не указана";
   const deadlinePill = row.querySelector(".deadline-pill");
   const deadlineInfo = getDeadlineInfo(participant.deadline);
   deadlinePill.textContent = deadlineInfo.label;
   deadlinePill.classList.add(`deadline-${deadlineInfo.tone}`);
-  row.querySelector(".table-count").textContent = completedNotice
-    ? "Цель выполнена"
-    : `${progress.done} из ${progress.total}`;
+  row.querySelector(".table-count").textContent = `${progress.done} из ${progress.total}`;
   row.querySelector(".table-progress-bar").style.width = `${progress.percent}%`;
   row.querySelector(".table-progress-percent").textContent = `${progress.percent}%`;
   adminCell.hidden = !state.isAdmin;
