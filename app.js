@@ -31,6 +31,7 @@ let pendingSharedSaveCount = 0;
 let lastLocalWriteAt = 0;
 let scheduledSaveTimer = 0;
 let pendingDeadlineConfirmation = null;
+const readonlySubtasksOpen = new Set();
 const LOCAL_WRITE_GRACE_MS = 3000;
 
 const openLoginButton = document.querySelector("#openLoginButton");
@@ -3594,6 +3595,10 @@ function createSubtaskCard(participantId, taskId, subtask, editable) {
   return card;
 }
 
+function getSubtaskToggleText(isOpen, remaining) {
+  return `${isOpen ? "Свернуть" : "Показать"} доп. шаги (${remaining})`;
+}
+
 function createTaskCard(participantId, task, editable, index, totalTasks) {
   const card = taskTemplate.content.firstElementChild.cloneNode(true);
   const checkbox = card.querySelector(".complete-checkbox");
@@ -3609,7 +3614,9 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
   const remaining = subtasks.filter((subtask) => !subtask.done).length;
   const canManageSubtasks = editable && !completed;
-  const shouldShowReadonlySubtasks = !editable && subtasks.length > 0 && !completed;
+  const canReadonlyToggleSubtasks = !editable && subtasks.length > 0 && !completed;
+  const readonlySubtasksKey = `${participantId}:${task.id}`;
+  const readonlySubtasksAreOpen = readonlySubtasksOpen.has(readonlySubtasksKey);
   if (completed && subtasks.length > 0 && !task.subtasksHidden) {
     task.subtasksHidden = true;
   }
@@ -3632,17 +3639,34 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   editButton.hidden = !editable || completed;
   completeBadge.hidden = !completed;
   addSubtaskButton.hidden = !canManageSubtasks;
-  subtaskToggle.hidden = !canManageSubtasks || subtasks.length === 0;
-  subtaskToggle.textContent = subtasks.length === 0
-    ? ""
-    : `${task.subtasksHidden ? "Показать" : "Скрыть"} доп. шаги (${remaining})`;
+  subtaskToggle.hidden = subtasks.length === 0 || completed;
+  subtaskToggle.textContent = getSubtaskToggleText(
+    canReadonlyToggleSubtasks ? readonlySubtasksAreOpen : !task.subtasksHidden,
+    remaining,
+  );
   subtaskPanel.hidden =
-    subtasks.length === 0 || completed || (!shouldShowReadonlySubtasks && task.subtasksHidden);
+    subtasks.length === 0 ||
+    completed ||
+    (canReadonlyToggleSubtasks ? !readonlySubtasksAreOpen : task.subtasksHidden);
   subtaskForm.hidden = !canManageSubtasks;
 
   checkbox.addEventListener("change", () => toggleTask(participantId, task.id, checkbox.checked));
   card.addEventListener("pointerdown", (event) => beginCardDrag(event, participantId, task.id));
-  subtaskToggle.addEventListener("click", () => toggleSubtasksVisibility(participantId, task.id));
+  subtaskToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!canReadonlyToggleSubtasks) {
+      toggleSubtasksVisibility(participantId, task.id);
+      return;
+    }
+    const shouldOpen = subtaskPanel.hidden;
+    subtaskPanel.hidden = !shouldOpen;
+    if (shouldOpen) {
+      readonlySubtasksOpen.add(readonlySubtasksKey);
+    } else {
+      readonlySubtasksOpen.delete(readonlySubtasksKey);
+    }
+    subtaskToggle.textContent = getSubtaskToggleText(shouldOpen, remaining);
+  });
   addSubtaskButton.addEventListener("click", (e) => {
     e.stopPropagation();
     if (isTaskComplete(task)) return;
