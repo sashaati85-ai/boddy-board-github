@@ -439,6 +439,7 @@ function normalizeState(candidate) {
     uiText: normalizeEditableMap(candidate.uiText),
     uiPlaceholders: normalizeEditableMap(candidate.uiPlaceholders),
     announcement: normalizeAnnouncement(candidate.announcement),
+    announcementDeletedAt: Number(candidate.announcementDeletedAt || 0),
     deletedParticipantIds: Array.isArray(candidate.deletedParticipantIds)
       ? candidate.deletedParticipantIds
       : [],
@@ -456,6 +457,7 @@ function normalizeAnnouncement(announcement) {
     id: announcement.id || crypto.randomUUID(),
     text: String(announcement.text || "").trim(),
     createdAt: announcement.createdAt || Date.now(),
+    updatedAt: announcement.updatedAt || announcement.createdAt || Date.now(),
     recipient: normalizeAnnouncementRecipient(announcement.recipient),
     readBy: Array.isArray(announcement.readBy) ? announcement.readBy : [],
   };
@@ -581,6 +583,7 @@ function createInitialState() {
     uiText: {},
     uiPlaceholders: {},
     announcement: null,
+    announcementDeletedAt: 0,
     deletedParticipantIds: [],
     isAdmin: false,
     participants: [],
@@ -1074,6 +1077,7 @@ function toSharedState(source, options = {}) {
     uiText: normalizeEditableMap(source.uiText),
     uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
     announcement: source.announcement,
+    announcementDeletedAt: Number(source.announcementDeletedAt || 0),
     deletedParticipantIds: source.deletedParticipantIds || [],
     allowEmptyParticipants: Boolean(options.allowEmptyParticipants),
     allowEmptyRegistrationPassword: Boolean(options.allowEmptyRegistrationPassword),
@@ -1165,7 +1169,11 @@ function mergeSharedStates(baseState, nextState, options = {}) {
     }
   });
 
-  const announcement = getNewestAnnouncement(base.announcement, next.announcement);
+  const announcement = getNewestAnnouncement(base, next);
+  const announcementDeletedAt = Math.max(
+    Number(base.announcementDeletedAt || 0),
+    Number(next.announcementDeletedAt || 0),
+  );
 
   return {
     ...base,
@@ -1189,6 +1197,7 @@ function mergeSharedStates(baseState, nextState, options = {}) {
       ...next.uiPlaceholders,
     },
     announcement,
+    announcementDeletedAt,
     deletedParticipantIds: deletedIds,
     activeParticipantId: next.activeParticipantId || base.activeParticipantId,
     viewedParticipantId: next.viewedParticipantId || base.viewedParticipantId,
@@ -1395,12 +1404,26 @@ function getParticipantTaskListUpdatedAt(participant = {}) {
   );
 }
 
-function getNewestAnnouncement(baseAnnouncement, nextAnnouncement) {
-  if (!baseAnnouncement) return nextAnnouncement || null;
-  if (!nextAnnouncement) return baseAnnouncement;
-  return (nextAnnouncement.createdAt || 0) >= (baseAnnouncement.createdAt || 0)
-    ? nextAnnouncement
-    : baseAnnouncement;
+function getNewestAnnouncement(baseState, nextState) {
+  const baseAnnouncement = baseState.announcement || null;
+  const nextAnnouncement = nextState.announcement || null;
+  const deletedAt = Math.max(
+    Number(baseState.announcementDeletedAt || 0),
+    Number(nextState.announcementDeletedAt || 0),
+  );
+  const baseTime = getAnnouncementUpdatedAt(baseAnnouncement);
+  const nextTime = getAnnouncementUpdatedAt(nextAnnouncement);
+  const newestAnnouncement = nextTime >= baseTime ? nextAnnouncement : baseAnnouncement;
+
+  if (deletedAt >= getAnnouncementUpdatedAt(newestAnnouncement)) {
+    return null;
+  }
+  return newestAnnouncement;
+}
+
+function getAnnouncementUpdatedAt(announcement) {
+  if (!announcement) return 0;
+  return Number(announcement.updatedAt || announcement.createdAt || 0);
 }
 
 function isEditingParticipantContent() {
@@ -1975,16 +1998,19 @@ function publishAnnouncement() {
     return;
   }
 
+  const now = Date.now();
   state.announcement = {
     id: crypto.randomUUID(),
     text,
-    createdAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
     recipient: {
       type: isPersonalRecipient ? "participant" : "all",
       participantId,
     },
     readBy: [],
   };
+  state.announcementDeletedAt = 0;
   announcementInput.value = "";
   showAnnouncementMessage("", false);
   showAdminMessage(isPersonalRecipient ? "Новость отправлена выбранному участнику." : "Новость опубликована для всех участников.", false);
@@ -1997,6 +2023,7 @@ function deleteAnnouncement() {
   if (!state.isAdmin || !state.announcement) return;
 
   state.announcement = null;
+  state.announcementDeletedAt = Date.now();
   announcementInput.value = "";
   showAnnouncementMessage("Новость удалена.", false);
   showAdminMessage("Новость удалена у всех участников.", false);
@@ -2080,6 +2107,7 @@ function markAnnouncementRead() {
 
   if (!state.announcement.readBy.includes(active.id)) {
     state.announcement.readBy.push(active.id);
+    state.announcement.updatedAt = Date.now();
     saveState();
   }
 

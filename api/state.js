@@ -11,7 +11,8 @@ function normalizeSharedState(value) {
     siteImages: normalizeSiteImages(source.siteImages),
     uiText: normalizeEditableMap(source.uiText),
     uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
-    announcement: source.announcement || null,
+    announcement: normalizeAnnouncement(source.announcement),
+    announcementDeletedAt: Number(source.announcementDeletedAt || 0),
     deletedParticipantIds: Array.isArray(source.deletedParticipantIds)
       ? source.deletedParticipantIds
       : [],
@@ -53,7 +54,7 @@ module.exports = async function handler(request, response) {
     });
     const currentData = currentResponse.ok
       ? normalizeSharedState(await currentResponse.json())
-      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), uiText: {}, uiPlaceholders: {}, announcement: null, deletedParticipantIds: [] };
+      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), uiText: {}, uiPlaceholders: {}, announcement: null, announcementDeletedAt: 0, deletedParticipantIds: [] };
     const deletedIds = new Set([
       ...currentData.deletedParticipantIds,
       ...data.deletedParticipantIds,
@@ -70,6 +71,8 @@ module.exports = async function handler(request, response) {
     };
     data.uiText = { ...currentData.uiText, ...data.uiText };
     data.uiPlaceholders = { ...currentData.uiPlaceholders, ...data.uiPlaceholders };
+    data.announcement = chooseAnnouncement(currentData, data);
+    data.announcementDeletedAt = Math.max(currentData.announcementDeletedAt || 0, data.announcementDeletedAt || 0);
     data.deletedParticipantIds = [...deletedIds];
     data.participants = mergeParticipants(currentData.participants, data.participants, deletedIds);
 
@@ -104,6 +107,40 @@ function normalizeSiteImages(siteImages = {}) {
     logo: typeof siteImages.logo === "string" ? siteImages.logo : "",
     cover: typeof siteImages.cover === "string" ? siteImages.cover : "",
   };
+}
+
+function normalizeAnnouncement(announcement) {
+  if (!announcement || typeof announcement !== "object") return null;
+  return {
+    ...announcement,
+    id: announcement.id || crypto.randomUUID(),
+    text: String(announcement.text || "").trim(),
+    createdAt: announcement.createdAt || Date.now(),
+    updatedAt: announcement.updatedAt || announcement.createdAt || Date.now(),
+    readBy: Array.isArray(announcement.readBy) ? announcement.readBy : [],
+  };
+}
+
+function chooseAnnouncement(currentData, incomingData) {
+  const deletedAt = Math.max(
+    Number(currentData.announcementDeletedAt || 0),
+    Number(incomingData.announcementDeletedAt || 0),
+  );
+  const currentAnnouncement = currentData.announcement || null;
+  const incomingAnnouncement = incomingData.announcement || null;
+  const currentTime = getAnnouncementUpdatedAt(currentAnnouncement);
+  const incomingTime = getAnnouncementUpdatedAt(incomingAnnouncement);
+  const newestAnnouncement = incomingTime >= currentTime ? incomingAnnouncement : currentAnnouncement;
+
+  if (deletedAt >= getAnnouncementUpdatedAt(newestAnnouncement)) {
+    return null;
+  }
+  return newestAnnouncement;
+}
+
+function getAnnouncementUpdatedAt(announcement) {
+  if (!announcement) return 0;
+  return Number(announcement.updatedAt || announcement.createdAt || 0);
 }
 
 function mergeParticipants(currentParticipants = [], incomingParticipants = [], deletedIds = new Set()) {
