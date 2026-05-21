@@ -75,6 +75,7 @@ let lastLocalWriteAt = 0;
 let scheduledSaveTimer = 0;
 let pendingDeadlineConfirmation = null;
 const readonlySubtasksOpen = new Set();
+let pendingGoalCompletion = null;
 const LOCAL_WRITE_GRACE_MS = 3000;
 
 const openLoginButton = document.querySelector("#openLoginButton");
@@ -170,6 +171,14 @@ const tableRowTemplate = document.querySelector("#tableRowTemplate");
 const profileTemplate = document.querySelector("#profileTemplate");
 const taskTemplate = document.querySelector("#taskTemplate");
 const subtaskTemplate = document.querySelector("#subtaskTemplate");
+const goalCompletionModal = document.querySelector("#goalCompletionModal");
+const goalCompletionTitle = document.querySelector("#goalCompletionTitle");
+const goalCompletionStreak = document.querySelector("#goalCompletionStreak");
+const goalCompletionSteps = document.querySelector("#goalCompletionSteps");
+const goalCompletionStatus = document.querySelector("#goalCompletionStatus");
+const goalCompletionDate = document.querySelector("#goalCompletionDate");
+const goalCompletionNewGoalButton = document.querySelector("#goalCompletionNewGoalButton");
+const goalCompletionArchiveButton = document.querySelector("#goalCompletionArchiveButton");
 
 const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_OAUTH_CLIENT_ID";
 
@@ -260,6 +269,21 @@ editDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfir
 closeDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation(false));
 cancelDeadlineConfirmButton?.addEventListener("click", () => resolveDeadlineConfirmation("edit"));
 confirmDeadlineButton?.addEventListener("click", () => resolveDeadlineConfirmation(true));
+goalCompletionNewGoalButton?.addEventListener("click", () => {
+  const participantId = pendingGoalCompletion?.participantId || state.activeParticipantId;
+  pendingGoalCompletion = null;
+  if (goalCompletionModal) goalCompletionModal.hidden = true;
+  startNextGoal(participantId);
+});
+goalCompletionArchiveButton?.addEventListener("click", () => {
+  const participantId = pendingGoalCompletion?.participantId || state.activeParticipantId;
+  pendingGoalCompletion = null;
+  if (goalCompletionModal) goalCompletionModal.hidden = true;
+  viewParticipant(participantId);
+  requestAnimationFrame(() => {
+    document.querySelector(".goal-archive")?.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+});
 window.addEventListener("resize", scheduleTourPositionUpdate);
 window.addEventListener("scroll", scheduleTourPositionUpdate, { passive: true });
 window.addEventListener("focus", refreshSharedState);
@@ -459,6 +483,11 @@ function normalizeState(candidate) {
           progress: Number.isFinite(goal.progress) ? goal.progress : 0,
           doneTasks: Number.isFinite(goal.doneTasks) ? goal.doneTasks : 0,
           totalTasks: Number.isFinite(goal.totalTasks) ? goal.totalTasks : 0,
+          completedSteps: Number.isFinite(goal.completedSteps) ? goal.completedSteps : Number(goal.doneTasks || 0),
+          completedAt: Number(goal.completedAt || goal.archivedAt || Date.now()),
+          streakAtCompletion: Number(goal.streakAtCompletion || 0),
+          statusTitle: goal.statusTitle || "",
+          statusIcon: goal.statusIcon || "",
           archivedAt: goal.archivedAt || Date.now(),
         }))
       : [],
@@ -2247,8 +2276,9 @@ function archiveFinishedGoal(participant) {
 
   const archivedAt = Date.now();
   const goalTitle = participant.goal || "Цель без названия";
-  participant.archivedGoals = Array.isArray(participant.archivedGoals) ? participant.archivedGoals : [];
-  participant.archivedGoals.unshift({
+  const completedSteps = getCompletedActionCount(participant.tasks);
+  const statusInfo = getParticipantStatusInfo(participant);
+  const archiveEntry = {
     id: crypto.randomUUID(),
     title: goalTitle,
     deadline: participant.deadline || "",
@@ -2256,8 +2286,15 @@ function archiveFinishedGoal(participant) {
     progress: progress.percent,
     doneTasks: progress.done,
     totalTasks: progress.total,
+    completedSteps,
+    completedAt: archivedAt,
+    streakAtCompletion: completed ? statusInfo.streak : 0,
+    statusTitle: completed ? statusInfo.title : "",
+    statusIcon: completed ? statusInfo.icon : "",
     archivedAt,
-  });
+  };
+  participant.archivedGoals = Array.isArray(participant.archivedGoals) ? participant.archivedGoals : [];
+  participant.archivedGoals.unshift(archiveEntry);
   if (completed) {
     participant.completedGoalNotice = {
       id: crypto.randomUUID(),
@@ -2265,6 +2302,12 @@ function archiveFinishedGoal(participant) {
       completedAt: archivedAt,
       expiresAt: archivedAt + COMPLETED_GOAL_NOTICE_TTL,
     };
+    if (isActive(participant.id)) {
+      pendingGoalCompletion = {
+        participantId: participant.id,
+        ...archiveEntry,
+      };
+    }
   }
   participant.goal = "";
   participant.deadline = "";
@@ -2844,6 +2887,16 @@ function getProgress(tasks) {
   return { total, done, percent };
 }
 
+function getCompletedActionCount(tasks = []) {
+  return tasks.reduce((count, task) => {
+    const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+    if (subtasks.length > 0) {
+      return count + subtasks.filter((subtask) => Boolean(subtask.done)).length;
+    }
+    return count + (isTaskComplete(task) ? 1 : 0);
+  }, 0);
+}
+
 function isDeadlineExpired(deadline) {
   if (!deadline) return false;
   const [year, month, day] = deadline.split("-").map(Number);
@@ -3129,6 +3182,7 @@ function render() {
   renderActiveBadge();
   renderResults();
   renderProfile();
+  renderGoalCompletionModal();
   renderAnnouncementModal();
   renderDeadlineWarningModal();
   applyEditableText();
@@ -3685,28 +3739,55 @@ function renderProfile() {
   const canStartNextGoal =
     editable &&
     !hasActiveGoal(participant) &&
+    Number(participant.goalArchivedAt || 0) >= Number(participant.goalCycleStartedAt || 0) &&
     Array.isArray(participant.archivedGoals) &&
     participant.archivedGoals.length > 0;
   if (nextGoalPanel) {
     nextGoalPanel.hidden = !canStartNextGoal;
   }
   newGoalButton?.addEventListener("click", () => {
-    const now = Date.now();
-    if (participant.completedGoalNotice) {
-      participant.completedGoalNotice = null;
-    }
-    participant.goalCycleStartedAt = now;
-    participant.goalArchivedAt = 0;
-    participant.tasks = [];
-    participant.taskListUpdatedAt = now;
-    saveState();
-    renderResults();
-    goalInput.focus();
-    goalInput.scrollIntoView({ block: "center", behavior: "smooth" });
+    startNextGoal(participant.id);
   });
 
   profileView.append(node);
   maybeShowTempoWarning(participant, editable);
+}
+
+function startNextGoal(participantId) {
+  const participant = findParticipant(participantId);
+  if (!participant || !isActive(participant.id)) return;
+  const now = Date.now();
+  if (participant.completedGoalNotice) {
+    participant.completedGoalNotice = null;
+  }
+  participant.goalCycleStartedAt = now;
+  participant.goalArchivedAt = 0;
+  participant.tasks = [];
+  participant.taskListUpdatedAt = now;
+  saveState();
+  render();
+  requestAnimationFrame(() => {
+    const goalInput = document.querySelector(".person-goal");
+    goalInput?.focus();
+    goalInput?.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+}
+
+function renderGoalCompletionModal() {
+  if (!goalCompletionModal) return;
+  if (!pendingGoalCompletion) {
+    goalCompletionModal.hidden = true;
+    return;
+  }
+  goalCompletionModal.hidden = false;
+  goalCompletionTitle.textContent = `🏆 ${pendingGoalCompletion.title || "Цель без названия"}`;
+  goalCompletionStreak.textContent = `🔥 Серия дней: ${pendingGoalCompletion.streakAtCompletion || 0}`;
+  goalCompletionSteps.textContent = `⚡ Выполнено шагов: ${pendingGoalCompletion.completedSteps || 0}`;
+  goalCompletionStatus.textContent = `🏅 Статус: ${pendingGoalCompletion.statusTitle || "НОВИЧОК"}`;
+  goalCompletionDate.textContent = `📅 Дата завершения: ${formatCompletedDate(pendingGoalCompletion.completedAt || Date.now())}`;
+  requestAnimationFrame(() => {
+    goalCompletionNewGoalButton?.focus();
+  });
 }
 
 function maybeShowTempoWarning(participant, editable) {
@@ -3788,7 +3869,6 @@ function renderGoalArchive(container, participant) {
     const card = document.createElement("article");
     const main = document.createElement("div");
     const title = document.createElement("strong");
-    const meta = document.createElement("p");
     const status = document.createElement("span");
     const isCompleted = goal.status === "completed";
 
@@ -3796,18 +3876,31 @@ function renderGoalArchive(container, participant) {
     card.classList.toggle("archive-card-completed", isCompleted);
     card.classList.toggle("archive-card-expired", !isCompleted);
     main.className = "archive-main";
-    title.textContent = goal.title || "Цель без названия";
-    meta.textContent = getArchiveMeta(goal);
+    title.textContent = isCompleted
+      ? `🏆 ${goal.title || "Цель без названия"}`
+      : goal.title || "Цель без названия";
     status.className = `archive-status archive-${isCompleted ? "completed" : "expired"}`;
     status.textContent = isCompleted ? "Цель достигнута" : "Не достигнута";
 
-    main.append(title, meta);
     if (isCompleted) {
       const trophy = document.createElement("span");
+      const metrics = document.createElement("div");
       trophy.className = "archive-trophy";
       trophy.textContent = "🏆";
       trophy.setAttribute("aria-label", "Цель достигнута");
+      metrics.className = "archive-achievement-grid";
+      metrics.append(
+        createArchiveMetric("📅", "Дата завершения", formatCompletedDate(goal.completedAt || goal.archivedAt)),
+        createArchiveMetric("🔥", "Серия", formatDayCount(goal.streakAtCompletion || 0)),
+        createArchiveMetric("⚡", "Выполнено шагов", String(goal.completedSteps || goal.doneTasks || 0)),
+        createArchiveMetric("🏅", "Статус", `${goal.statusIcon || ""} ${goal.statusTitle || "НОВИЧОК"}`.trim()),
+      );
+      main.append(title, metrics);
       card.append(trophy);
+    } else {
+      const meta = document.createElement("p");
+      meta.textContent = getArchiveMeta(goal);
+      main.append(title, meta);
     }
     card.append(main, status);
 
@@ -3822,6 +3915,17 @@ function renderGoalArchive(container, participant) {
 
     container.append(card);
   });
+}
+
+function createArchiveMetric(icon, label, value) {
+  const metric = document.createElement("span");
+  metric.className = "archive-achievement-metric";
+  const labelEl = document.createElement("small");
+  const valueEl = document.createElement("strong");
+  labelEl.textContent = `${icon} ${label}`;
+  valueEl.textContent = value;
+  metric.append(labelEl, valueEl);
+  return metric;
 }
 
 function getArchiveMeta(goal) {

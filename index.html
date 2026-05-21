@@ -251,6 +251,25 @@
       </section>
     </div>
 
+    <div id="goalCompletionModal" class="modal-layer goal-completion-modal" hidden>
+      <section class="goal-completion-card" role="dialog" aria-modal="true" aria-labelledby="goalCompletionHeading">
+        <span class="goal-completion-glow" aria-hidden="true"></span>
+        <p class="goal-completion-kicker" id="goalCompletionHeading">👑 ЦЕЛЬ ДОСТИГНУТА</p>
+        <h2 id="goalCompletionTitle"></h2>
+        <div class="goal-completion-grid">
+          <span id="goalCompletionStreak"></span>
+          <span id="goalCompletionSteps"></span>
+          <span id="goalCompletionStatus"></span>
+          <span id="goalCompletionDate"></span>
+        </div>
+        <p class="goal-completion-message">Ты завершил этот путь. Создай новую цель и продолжай движение.</p>
+        <div class="goal-completion-actions">
+          <button id="goalCompletionNewGoalButton" class="primary-action" type="button">Создать новую цель</button>
+          <button id="goalCompletionArchiveButton" class="ghost-action" type="button">Посмотреть достижения</button>
+        </div>
+      </section>
+    </div>
+
     <template id="chartTemplate">
       <button class="chart-row" type="button">
         <span class="chart-person">
@@ -357,9 +376,9 @@
         </section>
 
         <section class="next-goal-panel" hidden>
-          <strong data-edit-key="nextGoalTitle">План завершён</strong>
-          <p data-edit-key="nextGoalText">Можно сделать другой план и поставить новую цель.</p>
-          <button class="new-goal-button primary-action" type="button" data-edit-key="newGoalButton">Новая цель</button>
+          <strong data-edit-key="nextGoalTitle">🔥 Ты завершил этот путь.</strong>
+          <p data-edit-key="nextGoalText">Создай новую цель и продолжай движение.</p>
+          <button class="new-goal-button primary-action" type="button" data-edit-key="newGoalButton">Создать новую цель</button>
         </section>
       </article>
     </template>
