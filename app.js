@@ -3608,6 +3608,8 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   const completed = isTaskComplete(task);
   const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
   const remaining = subtasks.filter((subtask) => !subtask.done).length;
+  const canManageSubtasks = editable && !completed;
+  const shouldShowReadonlySubtasks = !editable && subtasks.length > 0 && !completed;
   if (completed && subtasks.length > 0 && !task.subtasksHidden) {
     task.subtasksHidden = true;
   }
@@ -3629,12 +3631,14 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   checkbox.disabled = !editable || subtasks.length > 0 || completed;
   editButton.hidden = !editable || completed;
   completeBadge.hidden = !completed;
-  addSubtaskButton.hidden = !editable || completed;
-  subtaskToggle.hidden = subtasks.length === 0 || completed;
+  addSubtaskButton.hidden = !canManageSubtasks;
+  subtaskToggle.hidden = !canManageSubtasks || subtasks.length === 0;
   subtaskToggle.textContent = subtasks.length === 0
     ? ""
     : `${task.subtasksHidden ? "Показать" : "Скрыть"} доп. шаги (${remaining})`;
-  subtaskPanel.hidden = subtasks.length === 0 || task.subtasksHidden || completed;
+  subtaskPanel.hidden =
+    subtasks.length === 0 || completed || (!shouldShowReadonlySubtasks && task.subtasksHidden);
+  subtaskForm.hidden = !canManageSubtasks;
 
   checkbox.addEventListener("change", () => toggleTask(participantId, task.id, checkbox.checked));
   card.addEventListener("pointerdown", (event) => beginCardDrag(event, participantId, task.id));
