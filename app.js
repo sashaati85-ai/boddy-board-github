@@ -8,6 +8,49 @@ const PASSWORD_RESET_CODE = "Любовь";
 const DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
 const DEFAULT_COVER_URL = "assets/boddy-cover.png";
 const COMPLETED_GOAL_NOTICE_TTL = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const STATUS_TIERS = [
+  {
+    key: "newbie",
+    title: "НОВИЧОК",
+    icon: "🌱",
+    description: "человек только начал путь.",
+    minStreak: 0,
+    maxStreak: 2,
+  },
+  {
+    key: "walker",
+    title: "ИДУЩИЙ",
+    icon: "🚶",
+    description: "человек начинает двигаться стабильно.",
+    minStreak: 3,
+    maxStreak: 6,
+  },
+  {
+    key: "stable",
+    title: "СТАБИЛЬНЫЙ",
+    icon: "🏅",
+    description: "человек держит дисциплину.",
+    minStreak: 7,
+    maxStreak: 14,
+  },
+  {
+    key: "champion",
+    title: "ЧЕМПИОН",
+    icon: "🏆",
+    description: "человек показывает высокий уровень стабильности.",
+    minStreak: 15,
+    maxStreak: 29,
+  },
+  {
+    key: "legend",
+    title: "ЛЕГЕНДА",
+    icon: "👑",
+    description: "человек стал примером дисциплины.",
+    minStreak: 30,
+    maxStreak: Infinity,
+  },
+];
 
 const defaultParticipant = {
   id: crypto.randomUUID(),
@@ -283,6 +326,7 @@ function createTask(title, done = false, subtasks = []) {
     done,
     createdAt: now,
     updatedAt: now,
+    completedAt: done ? now : 0,
     subtasks,
     subtasksHidden: true,
   };
@@ -303,6 +347,9 @@ async function initialize() {
     saveState();
   }
   if (clearExpiredCompletedGoalNotices()) {
+    saveState();
+  }
+  if (maintainParticipantStatuses()) {
     saveState();
   }
   render();
@@ -339,9 +386,10 @@ async function refreshSharedState() {
     persistLocalSession();
     const hasArchivedGoals = archiveFinishedGoals();
     const hasExpiredNotices = clearExpiredCompletedGoalNotices();
+    const hasStatusChanges = maintainParticipantStatuses();
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(state)));
-    if (hasArchivedGoals || hasExpiredNotices) {
+    if (hasArchivedGoals || hasExpiredNotices || hasStatusChanges) {
       saveSharedState(state);
     }
     render();
@@ -394,6 +442,12 @@ function normalizeState(candidate) {
     goalCycleStartedAt: Number(person.goalCycleStartedAt || 0),
     goalArchivedAt: Number(person.goalArchivedAt || 0),
     taskListUpdatedAt: Number(person.taskListUpdatedAt || 0),
+    activityDates: normalizeActivityDates(person.activityDates),
+    currentStreak: Number(person.currentStreak || 0),
+    bestStreak: Number(person.bestStreak || 0),
+    lastActivityDate: person.lastActivityDate || "",
+    lastStatusKey: person.lastStatusKey || "",
+    tempoWarningShownFor: person.tempoWarningShownFor || "",
     onboardingCompleted: Boolean(person.onboardingCompleted),
     completedGoalNotice: normalizeCompletedGoalNotice(person.completedGoalNotice),
     archivedGoals: Array.isArray(person.archivedGoals)
@@ -415,6 +469,7 @@ function normalizeState(candidate) {
           done: Boolean(task.done || task.status === "done"),
           createdAt: task.createdAt || Date.now(),
           updatedAt: task.updatedAt || task.createdAt || Date.now(),
+          completedAt: Number(task.completedAt || 0),
           subtasks: Array.isArray(task.subtasks)
             ? task.subtasks.map((subtask) => ({
                 id: subtask.id || crypto.randomUUID(),
@@ -422,6 +477,7 @@ function normalizeState(candidate) {
                 done: Boolean(subtask.done || subtask.status === "done"),
                 createdAt: subtask.createdAt || Date.now(),
                 updatedAt: subtask.updatedAt || subtask.createdAt || Date.now(),
+                completedAt: Number(subtask.completedAt || 0),
               }))
             : [],
           subtasksHidden: typeof task.subtasksHidden === "boolean" ? task.subtasksHidden : true,
@@ -429,6 +485,7 @@ function normalizeState(candidate) {
       : [],
   }));
   participants.forEach(normalizeParticipantTasks);
+  participants.forEach(normalizeParticipantStatus);
 
   return {
     activeParticipantId: "",
@@ -1237,6 +1294,15 @@ function mergeParticipant(baseParticipant, nextParticipant) {
       getParticipantTaskListUpdatedAt(baseParticipant),
       getParticipantTaskListUpdatedAt(nextParticipant),
     ),
+    activityDates: mergeActivityDates(baseParticipant.activityDates, nextParticipant.activityDates),
+    currentStreak: Math.max(Number(baseParticipant.currentStreak || 0), Number(nextParticipant.currentStreak || 0)),
+    bestStreak: Math.max(Number(baseParticipant.bestStreak || 0), Number(nextParticipant.bestStreak || 0)),
+    lastActivityDate: getLatestDateValue(baseParticipant.lastActivityDate, nextParticipant.lastActivityDate),
+    lastStatusKey: nextParticipant.lastStatusKey || baseParticipant.lastStatusKey || "",
+    tempoWarningShownFor: getLatestDateValue(
+      baseParticipant.tempoWarningShownFor,
+      nextParticipant.tempoWarningShownFor,
+    ),
     deadlineWarningDismissedFor:
       nextParticipant.deadlineWarningDismissedFor || baseParticipant.deadlineWarningDismissedFor || "",
     onboardingCompleted: Boolean(nextParticipant.onboardingCompleted || baseParticipant.onboardingCompleted),
@@ -1319,6 +1385,7 @@ function mergeTask(baseTask, nextTask) {
     ...fallbackTask,
     ...preferredTask,
     done: Boolean(baseTask.done || nextTask.done),
+    completedAt: Number(preferredTask.completedAt || fallbackTask.completedAt || 0),
     subtasksHidden: isTaskComplete({ ...fallbackTask, ...preferredTask, subtasks })
       ? true
       : Boolean(preferredTask.subtasksHidden),
@@ -1386,6 +1453,7 @@ function mergeSubtask(baseSubtask, nextSubtask) {
     ...fallbackSubtask,
     ...preferredSubtask,
     done: Boolean(baseSubtask.done || nextSubtask.done),
+    completedAt: Number(preferredSubtask.completedAt || fallbackSubtask.completedAt || 0),
   };
 }
 
@@ -2273,12 +2341,17 @@ function toggleTask(participantId, taskId, done) {
 
   task.done = done;
   const now = Date.now();
+  task.completedAt = done ? now : 0;
+  const promotedStatus = done ? recordParticipantActivity(participant, now) : null;
   task.updatedAt = now;
   participant.taskListUpdatedAt = now;
   reorderTasks(participant);
   archiveFinishedGoal(participant);
   saveState();
   render();
+  if (promotedStatus) {
+    showStatusToast(`${promotedStatus.icon} Новый статус: ${promotedStatus.title}`);
+  }
 }
 
 function reorderTasks(participant) {
@@ -2344,6 +2417,8 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
 
   const now = Date.now();
   subtask.done = done;
+  subtask.completedAt = done ? now : 0;
+  const promotedStatus = done ? recordParticipantActivity(participant, now) : null;
   subtask.updatedAt = now;
   task.updatedAt = now;
   participant.taskListUpdatedAt = now;
@@ -2355,6 +2430,9 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
   archiveFinishedGoal(participant);
   saveState();
   render();
+  if (promotedStatus) {
+    showStatusToast(`${promotedStatus.icon} Новый статус: ${promotedStatus.title}`);
+  }
 }
 
 function deleteSubtask(participantId, taskId, subtaskId) {
@@ -2829,6 +2907,189 @@ function formatDaysLeft(days) {
   return `${days} дней`;
 }
 
+function normalizeActivityDates(dates) {
+  if (!Array.isArray(dates)) return [];
+  return [...new Set(dates.filter(isDateValue))].sort();
+}
+
+function seedActivityDatesFromTasks(participant) {
+  const dates = normalizeActivityDates(participant.activityDates);
+  const seen = new Set(dates);
+  (participant.tasks || []).forEach((task) => {
+    if (task.done) {
+      const completedAt = Number(task.completedAt || task.updatedAt || task.createdAt || 0);
+      const dateValue = timestampToDateValue(completedAt);
+      if (dateValue && !seen.has(dateValue)) {
+        seen.add(dateValue);
+        dates.push(dateValue);
+      }
+      if (!task.completedAt && completedAt) task.completedAt = completedAt;
+    }
+    (task.subtasks || []).forEach((subtask) => {
+      if (!subtask.done) return;
+      const completedAt = Number(subtask.completedAt || subtask.updatedAt || subtask.createdAt || 0);
+      const dateValue = timestampToDateValue(completedAt);
+      if (dateValue && !seen.has(dateValue)) {
+        seen.add(dateValue);
+        dates.push(dateValue);
+      }
+      if (!subtask.completedAt && completedAt) subtask.completedAt = completedAt;
+    });
+  });
+  return dates.sort();
+}
+
+function normalizeParticipantStatus(participant) {
+  if (!participant) return false;
+  const before = JSON.stringify({
+    activityDates: participant.activityDates,
+    currentStreak: participant.currentStreak,
+    bestStreak: participant.bestStreak,
+    lastActivityDate: participant.lastActivityDate,
+    lastStatusKey: participant.lastStatusKey,
+  });
+  participant.activityDates = seedActivityDatesFromTasks(participant);
+  const streak = getStreakFromActivityDates(participant.activityDates);
+  const daysWithoutActivity = getDaysSinceActivity(streak.lastDate);
+  participant.currentStreak = daysWithoutActivity >= 5 ? 0 : streak.current;
+  participant.bestStreak = Math.max(Number(participant.bestStreak || 0), streak.best);
+  participant.lastActivityDate = streak.lastDate;
+  const status = getStatusTier(participant.currentStreak);
+  participant.lastStatusKey = status.key;
+  return before !== JSON.stringify({
+    activityDates: participant.activityDates,
+    currentStreak: participant.currentStreak,
+    bestStreak: participant.bestStreak,
+    lastActivityDate: participant.lastActivityDate,
+    lastStatusKey: participant.lastStatusKey,
+  });
+}
+
+function maintainParticipantStatuses() {
+  return state.participants.reduce((changed, participant) => {
+    const normalized = normalizeParticipantStatus(participant);
+    const info = getParticipantStatusInfo(participant);
+    if (info.daysWithoutActivity >= 5 && participant.currentStreak !== 0) {
+      participant.currentStreak = 0;
+      participant.lastStatusKey = getStatusTier(0).key;
+      return true;
+    }
+    return changed || normalized;
+  }, false);
+}
+
+function recordParticipantActivity(participant, timestamp = Date.now()) {
+  if (!participant) return null;
+  normalizeParticipantStatus(participant);
+  const previousStatus = getStatusTier(getParticipantDisplayStreak(participant));
+  const dateValue = timestampToDateValue(timestamp);
+  participant.activityDates = normalizeActivityDates([...(participant.activityDates || []), dateValue]);
+  const streak = getStreakFromActivityDates(participant.activityDates);
+  participant.currentStreak = streak.current;
+  participant.bestStreak = Math.max(Number(participant.bestStreak || 0), streak.best);
+  participant.lastActivityDate = streak.lastDate;
+  participant.tempoWarningShownFor = "";
+  const nextStatus = getStatusTier(participant.currentStreak);
+  const promoted = getStatusRank(nextStatus.key) > getStatusRank(previousStatus.key);
+  participant.lastStatusKey = nextStatus.key;
+  return promoted ? nextStatus : null;
+}
+
+function getParticipantStatusInfo(participant) {
+  normalizeParticipantStatus(participant);
+  const streak = getParticipantDisplayStreak(participant);
+  const status = getStatusTier(streak);
+  const daysWithoutActivity = getDaysSinceActivity(participant.lastActivityDate);
+  const activity = getActivityState(daysWithoutActivity);
+  return {
+    ...status,
+    streak,
+    bestStreak: Number(participant.bestStreak || 0),
+    daysWithoutActivity,
+    activity,
+  };
+}
+
+function getParticipantDisplayStreak(participant) {
+  return getDaysSinceActivity(participant?.lastActivityDate) >= 5 ? 0 : Number(participant?.currentStreak || 0);
+}
+
+function getActivityState(daysWithoutActivity) {
+  if (daysWithoutActivity >= 5 || daysWithoutActivity === Infinity) {
+    return { key: "inactive", icon: "❄️", label: "НЕАКТИВЕН" };
+  }
+  if (daysWithoutActivity >= 3) {
+    return { key: "slowing", icon: "⚠️", label: "ТЕРЯЕТ ТЕМП" };
+  }
+  return { key: "active", icon: "🔥", label: "В СТРОЮ" };
+}
+
+function getStatusTier(streak) {
+  return STATUS_TIERS.find((tier) => streak >= tier.minStreak && streak <= tier.maxStreak) || STATUS_TIERS[0];
+}
+
+function getStatusRank(statusKey) {
+  return Math.max(0, STATUS_TIERS.findIndex((tier) => tier.key === statusKey));
+}
+
+function getStreakFromActivityDates(dates) {
+  const normalized = normalizeActivityDates(dates);
+  if (normalized.length === 0) {
+    return { current: 0, best: 0, lastDate: "" };
+  }
+  let best = 1;
+  let run = 1;
+  for (let index = 1; index < normalized.length; index += 1) {
+    const previous = dateValueToDayIndex(normalized[index - 1]);
+    const current = dateValueToDayIndex(normalized[index]);
+    if (current - previous === 1) {
+      run += 1;
+    } else {
+      run = 1;
+    }
+    best = Math.max(best, run);
+  }
+  return {
+    current: run,
+    best,
+    lastDate: normalized[normalized.length - 1],
+  };
+}
+
+function getDaysSinceActivity(dateValue) {
+  if (!isDateValue(dateValue)) return Infinity;
+  return Math.max(0, dateValueToDayIndex(getTodayDateValue()) - dateValueToDayIndex(dateValue));
+}
+
+function isDateValue(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
+function timestampToDateValue(timestamp) {
+  const date = new Date(Number(timestamp || 0));
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateValueToDayIndex(dateValue) {
+  const [year, month, day] = String(dateValue || "").split("-").map(Number);
+  if (!year || !month || !day) return 0;
+  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
+}
+
+function mergeActivityDates(baseDates, nextDates) {
+  return normalizeActivityDates([...(baseDates || []), ...(nextDates || [])]);
+}
+
+function getLatestDateValue(baseDate, nextDate) {
+  if (!isDateValue(baseDate)) return isDateValue(nextDate) ? nextDate : "";
+  if (!isDateValue(nextDate)) return baseDate;
+  return dateValueToDayIndex(nextDate) >= dateValueToDayIndex(baseDate) ? nextDate : baseDate;
+}
+
 function getSortedParticipants() {
   return [...state.participants].sort((a, b) => {
     const progressDiff = getDashboardProgress(b).percent - getDashboardProgress(a).percent;
@@ -2857,6 +3118,9 @@ function getActiveCompletedGoalNotice(participant) {
 
 function render() {
   if (archiveFinishedGoals()) {
+    saveState();
+  }
+  if (maintainParticipantStatuses()) {
     saveState();
   }
   renderWelcomeGate();
@@ -3207,6 +3471,7 @@ function renderChartRow(participant, progress, place) {
     placeIcon.setAttribute("aria-label", placeBadge.text);
   }
   node.querySelector(".chart-name").textContent = participant.name;
+  node.querySelector(".chart-person").append(createStatusMiniBadge(participant));
   championBadge.dataset.editKey = placeBadge.key;
   championBadge.textContent = placeBadge.text;
   championBadge.hidden = false;
@@ -3251,6 +3516,7 @@ function renderTableRow(participant, progress) {
 
   row.classList.toggle("is-viewed", state.viewedParticipantId === participant.id);
   nameText.textContent = participant.name;
+  nameButton.append(createStatusMiniBadge(participant));
   if (avatar) {
     avatar.src = participant.picture || "";
     avatar.hidden = !participant.picture;
@@ -3303,6 +3569,7 @@ function renderProfile() {
   const newGoalButton = node.querySelector(".new-goal-button");
   const profileAvatar = node.querySelector(".profile-avatar");
   const deleteAccountButton = node.querySelector(".delete-account");
+  const statusInfo = getParticipantStatusInfo(participant);
 
   node.classList.toggle("is-active", editable);
   node.querySelector(".person-label").textContent = editable ? "Ваша страница" : "Публичный просмотр";
@@ -3318,6 +3585,7 @@ function renderProfile() {
     profileAvatar.src = participant.picture || "";
     profileAvatar.hidden = !participant.picture;
   }
+  renderStatusCard(node, statusInfo);
 
   goalInput.value = participant.goal;
   goalInput.disabled = !editable;
@@ -3438,6 +3706,69 @@ function renderProfile() {
   });
 
   profileView.append(node);
+  maybeShowTempoWarning(participant, editable);
+}
+
+function maybeShowTempoWarning(participant, editable) {
+  if (!editable) return;
+  const status = getParticipantStatusInfo(participant);
+  const today = getTodayDateValue();
+  if (status.daysWithoutActivity < 3 || status.daysWithoutActivity >= 5) return;
+  if (participant.tempoWarningShownFor === today) return;
+  participant.tempoWarningShownFor = today;
+  saveState();
+  showStatusToast("⚠️ Ты начинаешь терять темп");
+}
+
+function renderStatusCard(node, status) {
+  const card = node.querySelector(".status-card");
+  if (!card) return;
+  card.dataset.status = status.key;
+  card.dataset.activity = status.activity.key;
+  card.querySelector(".status-pill").textContent = `${status.icon} ${status.title}`;
+  card.querySelector(".status-emblem").textContent = status.icon;
+  card.querySelector(".status-title").textContent = status.title;
+  card.querySelector(".status-description").textContent = status.description;
+  card.querySelector(".status-streak").textContent = `🔥 Серия: ${formatDayCount(status.streak)}`;
+  card.querySelector(".status-record").textContent = `🏆 Рекорд: ${formatDayCount(status.bestStreak)}`;
+  card.querySelector(".status-activity").textContent = `${status.activity.icon} Активность: ${status.activity.label}`;
+}
+
+function createStatusMiniBadge(participant) {
+  const status = getParticipantStatusInfo(participant);
+  const badge = document.createElement("span");
+  badge.className = "status-mini";
+  badge.dataset.status = status.key;
+  badge.innerHTML = `
+    <span class="status-mini-title">${status.icon} ${status.title}</span>
+    <span class="status-mini-streak">🔥 ${formatDayCount(status.streak)}</span>
+  `;
+  return badge;
+}
+
+function formatDayCount(days) {
+  const safeDays = Number(days || 0);
+  const lastDigit = safeDays % 10;
+  const lastTwoDigits = safeDays % 100;
+  if (lastDigit === 1 && lastTwoDigits !== 11) return `${safeDays} день`;
+  if (lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 12 || lastTwoDigits > 14)) {
+    return `${safeDays} дня`;
+  }
+  return `${safeDays} дней`;
+}
+
+function showStatusToast(message) {
+  const toast = document.createElement("div");
+  toast.className = "status-toast";
+  toast.textContent = message;
+  document.body.append(toast);
+  requestAnimationFrame(() => {
+    toast.classList.add("is-visible");
+  });
+  window.setTimeout(() => {
+    toast.classList.remove("is-visible");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+  }, 3600);
 }
 
 function renderGoalArchive(container, participant) {
