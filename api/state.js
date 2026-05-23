@@ -1,4 +1,5 @@
-const STORE_URL = "https://jsonblob.com/api/jsonBlob/019e46e2-c1d5-7c5b-bd04-d9710184ec78";
+const STORE_URL = process.env.BODDY_STATE_STORE_URL ||
+  "https://jsonblob.com/api/jsonBlob/019e53b9-a81b-7f5c-9463-7e3e842e65b2";
 
 function normalizeSharedState(value) {
   const source = value && typeof value === "object" ? value : {};
