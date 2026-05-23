@@ -11,6 +11,7 @@
   --sky: #d8b46f;
   --orange: #c99a45;
   --orange-dark: #8f642c;
+  --progress-gradient: linear-gradient(90deg, #8f642c 0%, #c99a45 42%, #f1d27a 72%, #b7863f 100%);
   --danger: #b45746;
   --done: #6f8b5f;
   --shadow: 0 16px 40px rgba(92, 63, 31, 0.11);
@@ -516,7 +517,10 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
   height: 12px;
   overflow: hidden;
   border-radius: 999px;
-  background: #eadfce;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.72), rgba(234, 223, 206, 0.62)),
+    #eadfce;
+  box-shadow: inset 0 1px 3px rgba(92, 63, 31, 0.14);
 }
 
 .chart-track {
@@ -529,7 +533,12 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
   width: 0%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--vk-blue), var(--orange));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 52%),
+    var(--progress-gradient);
+  box-shadow:
+    0 0 14px rgba(201, 154, 69, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
   transition: width 180ms ease;
 }
 
@@ -665,14 +674,22 @@ tbody tr.is-viewed {
   height: 14px;
   overflow: hidden;
   border-radius: 999px;
-  background: #e5ebf1;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.72), rgba(229, 219, 202, 0.72)),
+    #eadfce;
+  box-shadow: inset 0 1px 3px rgba(92, 63, 31, 0.13);
 }
 
 .table-progress-bar {
   width: 0%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--vk-blue), var(--orange));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 52%),
+    var(--progress-gradient);
+  box-shadow:
+    0 0 14px rgba(201, 154, 69, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
   transition: width 180ms ease;
 }
 

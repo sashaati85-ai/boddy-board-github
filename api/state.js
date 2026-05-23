@@ -1,5 +1,9 @@
 const STORE_URL = process.env.BODDY_STATE_STORE_URL ||
   "https://jsonblob.com/api/jsonBlob/019e53b9-a81b-7f5c-9463-7e3e842e65b2";
+const LEGACY_DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
+const DEFAULT_LOGO_URL = "assets/boddy-rocket-logo.png";
+const LEGACY_DEFAULT_COVER_URL = "assets/boddy-cover.png";
+const DEFAULT_COVER_URL = "assets/boddy-premium-cover.png";
 
 function normalizeSharedState(value) {
   const source = value && typeof value === "object" ? value : {};
@@ -135,9 +139,12 @@ module.exports = async function handler(request, response) {
 };
 
 function normalizeSiteImages(siteImages = {}) {
+  const logo = typeof siteImages.logo === "string" ? siteImages.logo.trim() : "";
+  const cover = typeof siteImages.cover === "string" ? siteImages.cover.trim() : "";
+
   return {
-    logo: typeof siteImages.logo === "string" ? siteImages.logo : "",
-    cover: typeof siteImages.cover === "string" ? siteImages.cover : "",
+    logo: !logo || logo === LEGACY_DEFAULT_LOGO_URL ? DEFAULT_LOGO_URL : logo,
+    cover: !cover || cover === DEFAULT_LOGO_URL || cover === LEGACY_DEFAULT_COVER_URL ? DEFAULT_COVER_URL : cover,
   };
 }
 

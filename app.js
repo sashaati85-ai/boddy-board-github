@@ -5,7 +5,8 @@ const SHARED_STATE_URL = "https://boddy-board-github.vercel.app/api/state";
 const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 const PASSWORD_RESET_CODE = "Любовь";
-const DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
+const LEGACY_DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
+const DEFAULT_LOGO_URL = "assets/boddy-rocket-logo.png";
 const LEGACY_DEFAULT_COVER_URL = "assets/boddy-cover.png";
 const DEFAULT_COVER_URL = "assets/boddy-premium-cover.png";
 const COMPLETED_GOAL_NOTICE_TTL = 7 * 24 * 60 * 60 * 1000;
@@ -676,9 +677,10 @@ function normalizeSiteImages(siteImages) {
     return defaults;
   }
 
+  const logo = String(siteImages.logo || "").trim();
   const cover = String(siteImages.cover || "").trim();
   return {
-    logo: String(siteImages.logo || "").trim() || defaults.logo,
+    logo: !logo || logo === LEGACY_DEFAULT_LOGO_URL ? defaults.logo : logo,
     cover: !cover || cover === DEFAULT_LOGO_URL || cover === LEGACY_DEFAULT_COVER_URL ? defaults.cover : cover,
   };
 }
