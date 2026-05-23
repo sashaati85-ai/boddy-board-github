@@ -6,7 +6,8 @@ const ADMIN_LOGIN = "Sasha";
 const DEFAULT_ADMIN_PASSWORD = "S_asha2305";
 const PASSWORD_RESET_CODE = "Любовь";
 const DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
-const DEFAULT_COVER_URL = "assets/boddy-cover.png";
+const LEGACY_DEFAULT_COVER_URL = "assets/boddy-cover.png";
+const DEFAULT_COVER_URL = "assets/boddy-premium-cover.png";
 const COMPLETED_GOAL_NOTICE_TTL = 7 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STATUS_TIERS = [
@@ -663,7 +664,7 @@ function normalizeSiteImages(siteImages) {
   const cover = String(siteImages.cover || "").trim();
   return {
     logo: String(siteImages.logo || "").trim() || defaults.logo,
-    cover: !cover || cover === DEFAULT_LOGO_URL ? defaults.cover : cover,
+    cover: !cover || cover === DEFAULT_LOGO_URL || cover === LEGACY_DEFAULT_COVER_URL ? defaults.cover : cover,
   };
 }
 
