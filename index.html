@@ -8,7 +8,7 @@
   </head>
   <body>
     <section id="welcomeGate" class="welcome-gate" aria-label="Вход нового участника" hidden>
-      <img class="welcome-gate-image" src="assets/boddy-premium-cover.png" alt="Вместе легче. Поддержка, дисциплина, результат. Два человека помогают друг другу подняться в гору.">
+      <img id="welcomeCover" class="welcome-gate-image" src="assets/boddy-premium-cover.png" alt="Вместе легче. Поддержка, дисциплина, результат. Два человека помогают друг другу подняться в гору.">
       <div class="welcome-gate-overlay"></div>
       <div class="welcome-gate-content">
         <p class="eyebrow" data-edit-key="welcomeEyebrow">Твой Бадди</p>
@@ -168,6 +168,29 @@
               </label>
               <button id="saveInactivityThresholdButton" class="primary-action" type="button" data-edit-key="saveInactivityThresholdButton">Сохранить период</button>
               <div id="adminParticipantsList" class="admin-participants-list"></div>
+            </div>
+          </div>
+          <div class="admin-image-tools">
+            <strong data-edit-key="siteImagesPanelTitle">Логотип и обложка</strong>
+            <div class="admin-site-image-grid">
+              <label class="announcement-label">
+                <span data-edit-key="siteLogoUrlLabel">Логотип</span>
+                <input id="adminLogoUrlInput" type="url" placeholder="Ссылка на логотип" data-placeholder-key="adminLogoUrlPlaceholder">
+                <input id="adminLogoFileInput" type="file" accept="image/*">
+              </label>
+              <div class="admin-image-actions">
+                <button id="saveAdminLogoButton" class="primary-action" type="button" data-edit-key="saveAdminLogoButton">Сохранить логотип</button>
+                <button id="resetAdminLogoButton" class="ghost-action" type="button" data-edit-key="resetAdminLogoButton">Вернуть логотип</button>
+              </div>
+              <label class="announcement-label">
+                <span data-edit-key="siteCoverUrlLabel">Обложка</span>
+                <input id="adminCoverUrlInput" type="url" placeholder="Ссылка на обложку" data-placeholder-key="adminCoverUrlPlaceholder">
+                <input id="adminCoverFileInput" type="file" accept="image/*">
+              </label>
+              <div class="admin-image-actions">
+                <button id="saveAdminCoverButton" class="primary-action" type="button" data-edit-key="saveAdminCoverButton">Сохранить обложку</button>
+                <button id="resetAdminCoverButton" class="ghost-action" type="button" data-edit-key="resetAdminCoverButton">Вернуть обложку</button>
+              </div>
             </div>
           </div>
           <div class="admin-image-tools">

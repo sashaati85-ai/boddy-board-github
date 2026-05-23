@@ -130,6 +130,14 @@ const passwordResetModal = document.querySelector("#passwordResetModal");
 const passwordResetCodeInput = document.querySelector("#passwordResetCodeInput");
 const resetAllPasswordsButton = document.querySelector("#resetAllPasswordsButton");
 const passwordResetMessage = document.querySelector("#passwordResetMessage");
+const adminLogoUrlInput = document.querySelector("#adminLogoUrlInput");
+const adminLogoFileInput = document.querySelector("#adminLogoFileInput");
+const saveAdminLogoButton = document.querySelector("#saveAdminLogoButton");
+const resetAdminLogoButton = document.querySelector("#resetAdminLogoButton");
+const adminCoverUrlInput = document.querySelector("#adminCoverUrlInput");
+const adminCoverFileInput = document.querySelector("#adminCoverFileInput");
+const saveAdminCoverButton = document.querySelector("#saveAdminCoverButton");
+const resetAdminCoverButton = document.querySelector("#resetAdminCoverButton");
 const participantPhotoSelect = document.querySelector("#participantPhotoSelect");
 const participantPhotoUrlInput = document.querySelector("#participantPhotoUrlInput");
 const participantPhotoFileInput = document.querySelector("#participantPhotoFileInput");
@@ -173,6 +181,7 @@ const brandLogo = document.querySelector("#brandLogo");
 const logoImageInput = document.querySelector("#logoImageInput");
 const heroCover = document.querySelector("#heroCover");
 const coverImageInput = document.querySelector("#coverImageInput");
+const welcomeCover = document.querySelector("#welcomeCover");
 const authMessage = document.querySelector("#authMessage");
 const adminMessage = document.querySelector("#adminMessage");
 const peopleCount = document.querySelector("#peopleCount");
@@ -270,6 +279,10 @@ brandLogo?.addEventListener("click", () => openSiteImagePicker(logoImageInput));
 heroCover?.addEventListener("click", () => openSiteImagePicker(coverImageInput));
 logoImageInput?.addEventListener("change", () => updateSiteImage("logo", logoImageInput));
 coverImageInput?.addEventListener("change", () => updateSiteImage("cover", coverImageInput));
+saveAdminLogoButton?.addEventListener("click", () => saveAdminSiteImage("logo"));
+resetAdminLogoButton?.addEventListener("click", () => resetAdminSiteImage("logo"));
+saveAdminCoverButton?.addEventListener("click", () => saveAdminSiteImage("cover"));
+resetAdminCoverButton?.addEventListener("click", () => resetAdminSiteImage("cover"));
 saveParticipantPhotoButton?.addEventListener("click", saveParticipantPhoto);
 clearParticipantPhotoButton?.addEventListener("click", clearParticipantPhoto);
 participantPhotoSelect?.addEventListener("change", syncParticipantPhotoInput);
@@ -477,6 +490,7 @@ function normalizeState(candidate) {
     name: person.name || "Участник",
     email: person.email || "",
     picture: person.picture || "",
+    profileUpdatedAt: Number(person.profileUpdatedAt || 0),
     authProvider: person.authProvider || "",
     passwordHash: person.passwordHash || "",
     goal: person.goal || "",
@@ -546,6 +560,7 @@ function normalizeState(candidate) {
     adminPasswordChanged: Boolean(candidate.adminPasswordChanged),
     registrationPasswordHash: candidate.registrationPasswordHash || "",
     siteImages: normalizeSiteImages(candidate.siteImages),
+    siteImagesUpdatedAt: Number(candidate.siteImagesUpdatedAt || 0),
     uiText: normalizeEditableMap(candidate.uiText),
     uiPlaceholders: normalizeEditableMap(candidate.uiPlaceholders),
     inactivityThresholdDays: normalizeInactivityThresholdDays(candidate.inactivityThresholdDays),
@@ -731,6 +746,7 @@ function migrateLegacyState() {
       adminPasswordHash: "",
       adminPasswordChanged: false,
       siteImages: createDefaultSiteImages(),
+      siteImagesUpdatedAt: 0,
       uiText: {},
       uiPlaceholders: {},
       inactivityThresholdDays: 7,
@@ -756,6 +772,7 @@ function createInitialState() {
     adminPasswordChanged: false,
     registrationPasswordHash: "",
     siteImages: createDefaultSiteImages(),
+    siteImagesUpdatedAt: 0,
     uiText: {},
     uiPlaceholders: {},
     inactivityThresholdDays: 7,
@@ -911,7 +928,10 @@ async function joinWithGoogle({ email, name, picture }) {
   }
 
   participant.name = name || participant.name;
-  participant.picture = picture || participant.picture;
+  if (picture && picture !== participant.picture) {
+    participant.picture = picture;
+    participant.profileUpdatedAt = Date.now();
+  }
   participant.authProvider = "google";
   state.activeParticipantId = participant.id;
   state.viewedParticipantId = participant.id;
@@ -930,6 +950,7 @@ function createGoogleParticipant({ email, name, picture, isNew }) {
     name,
     email,
     picture,
+    profileUpdatedAt: picture ? Date.now() : 0,
     authProvider: "google",
     passwordHash: "",
     goal: "",
@@ -1268,6 +1289,7 @@ function toSharedState(source, options = {}) {
     adminPasswordChanged: Boolean(source.adminPasswordChanged),
     registrationPasswordHash: source.registrationPasswordHash || "",
     siteImages: normalizeSiteImages(source.siteImages),
+    siteImagesUpdatedAt: Number(source.siteImagesUpdatedAt || 0),
     uiText: normalizeEditableMap(source.uiText),
     uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
     inactivityThresholdDays: normalizeInactivityThresholdDays(source.inactivityThresholdDays),
@@ -1378,6 +1400,10 @@ function mergeSharedStates(baseState, nextState, options = {}) {
     Number(next.announcementDeletedAt || 0),
   );
   const announcements = mergeAnnouncements(base, next, deletedAnnouncementIds, announcementDeletedAt);
+  const siteImagesUpdatedAt = Math.max(
+    Number(base.siteImagesUpdatedAt || 0),
+    Number(next.siteImagesUpdatedAt || 0),
+  );
 
   return {
     ...base,
@@ -1388,10 +1414,8 @@ function mergeSharedStates(baseState, nextState, options = {}) {
     registrationPasswordHash:
       next.registrationPasswordHash ||
       (options.allowEmptyRegistrationPassword ? "" : base.registrationPasswordHash),
-    siteImages: {
-      logo: next.siteImages?.logo || base.siteImages?.logo || DEFAULT_LOGO_URL,
-      cover: next.siteImages?.cover || base.siteImages?.cover || DEFAULT_COVER_URL,
-    },
+    siteImages: getNewestSiteImages(base, next),
+    siteImagesUpdatedAt,
     uiText: {
       ...base.uiText,
       ...next.uiText,
@@ -1416,6 +1440,22 @@ function mergeSharedStates(baseState, nextState, options = {}) {
   };
 }
 
+function getNewestSiteImages(baseState, nextState) {
+  const baseTime = Number(baseState.siteImagesUpdatedAt || 0);
+  const nextTime = Number(nextState.siteImagesUpdatedAt || 0);
+  const source = nextTime > baseTime ? nextState : baseState;
+  return normalizeSiteImages(source.siteImages);
+}
+
+function getNewestProfileSource(baseParticipant = {}, nextParticipant = {}) {
+  const baseTime = Number(baseParticipant.profileUpdatedAt || 0);
+  const nextTime = Number(nextParticipant.profileUpdatedAt || 0);
+  if (baseTime || nextTime) {
+    return nextTime >= baseTime ? nextParticipant : baseParticipant;
+  }
+  return nextParticipant.picture || !baseParticipant.picture ? nextParticipant : baseParticipant;
+}
+
 function mergeParticipant(baseParticipant, nextParticipant) {
   if (!baseParticipant) return nextParticipant;
   if (!nextParticipant) return baseParticipant;
@@ -1430,12 +1470,17 @@ function mergeParticipant(baseParticipant, nextParticipant) {
     baseGoalArchivedAt > nextGoalArchivedAt ||
     baseGoalCycleStartedAt > nextGoalCycleStartedAt;
   const goalSource = useNextGoalState ? nextParticipant : useBaseGoalState ? baseParticipant : nextParticipant;
+  const profileSource = getNewestProfileSource(baseParticipant, nextParticipant);
 
   return {
     ...baseParticipant,
     ...nextParticipant,
     passwordHash: nextParticipant.passwordHash || baseParticipant.passwordHash || "",
-    picture: nextParticipant.picture || baseParticipant.picture || "",
+    picture: hasOwn(profileSource, "picture") ? profileSource.picture || "" : nextParticipant.picture || baseParticipant.picture || "",
+    profileUpdatedAt: Math.max(
+      Number(baseParticipant.profileUpdatedAt || 0),
+      Number(nextParticipant.profileUpdatedAt || 0),
+    ),
     email: nextParticipant.email || baseParticipant.email || "",
     authProvider: nextParticipant.authProvider || baseParticipant.authProvider || "",
     goal: hasOwn(goalSource, "goal") ? goalSource.goal || "" : baseParticipant.goal || "",
@@ -1863,6 +1908,7 @@ async function joinAsParticipant(source = {}) {
       name,
       passwordHash,
       picture: uploadedPicture,
+      profileUpdatedAt: uploadedPicture ? Date.now() : 0,
       goal: "",
       deadline: "",
       deadlineLocked: false,
@@ -1877,7 +1923,10 @@ async function joinAsParticipant(source = {}) {
     showAuthMessage("Аккаунт создан. Теперь это ваша страница.", false, messageElement);
   } else if (!participant.passwordHash) {
     participant.passwordHash = passwordHash;
-    participant.picture = uploadedPicture || participant.picture || "";
+    if (uploadedPicture) {
+      participant.picture = uploadedPicture;
+      participant.profileUpdatedAt = Date.now();
+    }
     showAuthMessage("Пароль сохранён для этого имени.", false, messageElement);
   } else if (participant.passwordHash !== passwordHash) {
     await syncStateBeforeParticipantLogin();
@@ -1885,7 +1934,10 @@ async function joinAsParticipant(source = {}) {
       (person) => person.name.toLowerCase() === name.toLowerCase(),
     );
     if (participant?.passwordHash === passwordHash) {
-      participant.picture = uploadedPicture || participant.picture || "";
+      if (uploadedPicture) {
+        participant.picture = uploadedPicture;
+        participant.profileUpdatedAt = Date.now();
+      }
       showAuthMessage("Вы вошли в свою страницу.", false, messageElement);
     } else {
       showAuthMessage("Пароль не подходит для этого имени.", true, messageElement);
@@ -1893,7 +1945,10 @@ async function joinAsParticipant(source = {}) {
       return;
     }
   } else {
-    participant.picture = uploadedPicture || participant.picture || "";
+    if (uploadedPicture) {
+      participant.picture = uploadedPicture;
+      participant.profileUpdatedAt = Date.now();
+    }
     showAuthMessage("Вы вошли в свою страницу.", false, messageElement);
   }
 
@@ -2081,6 +2136,7 @@ function renderAdminPanel() {
   adminLoginButton.hidden = state.isAdmin;
   adminLogoutButton.hidden = !state.isAdmin;
   if (state.isAdmin) {
+    syncSiteImageInputs();
     renderParticipantPhotoOptions();
     renderAdminParticipantsPanel();
   }
@@ -2209,6 +2265,9 @@ function renderSiteImages() {
     heroCover.src = siteImages.cover;
     heroCover.title = state.isAdmin ? "Нажмите, чтобы поменять обложку" : "";
   }
+  if (welcomeCover) {
+    welcomeCover.src = siteImages.cover;
+  }
 }
 
 function openSiteImagePicker(input) {
@@ -2222,10 +2281,53 @@ async function updateSiteImage(type, input) {
   const siteImages = normalizeSiteImages(state.siteImages);
   siteImages[type] = await readImageFile(input.files[0]);
   state.siteImages = siteImages;
+  state.siteImagesUpdatedAt = Date.now();
   clearFileInput(input);
   saveState();
   showAdminMessage(type === "logo" ? "Логотип обновлён." : "Обложка обновлена.", false);
   render();
+}
+
+function syncSiteImageInputs() {
+  const siteImages = normalizeSiteImages(state.siteImages);
+  if (adminLogoUrlInput) adminLogoUrlInput.value = siteImages.logo || "";
+  if (adminCoverUrlInput) adminCoverUrlInput.value = siteImages.cover || "";
+}
+
+function getSiteImageInputs(type) {
+  return type === "logo"
+    ? { urlInput: adminLogoUrlInput, fileInput: adminLogoFileInput }
+    : { urlInput: adminCoverUrlInput, fileInput: adminCoverFileInput };
+}
+
+async function saveAdminSiteImage(type) {
+  if (!state.isAdmin) return;
+
+  const { urlInput, fileInput } = getSiteImageInputs(type);
+  const siteImages = normalizeSiteImages(state.siteImages);
+  siteImages[type] = await getImageValue(urlInput, fileInput, siteImages[type]);
+  state.siteImages = siteImages;
+  state.siteImagesUpdatedAt = Date.now();
+  clearFileInput(fileInput);
+  saveState();
+  showAdminMessage(type === "logo" ? "Логотип сохранён." : "Обложка сохранена.", false);
+  render();
+  openAdminPanel();
+}
+
+function resetAdminSiteImage(type) {
+  if (!state.isAdmin) return;
+
+  const { fileInput } = getSiteImageInputs(type);
+  const siteImages = normalizeSiteImages(state.siteImages);
+  siteImages[type] = type === "logo" ? DEFAULT_LOGO_URL : DEFAULT_COVER_URL;
+  state.siteImages = siteImages;
+  state.siteImagesUpdatedAt = Date.now();
+  clearFileInput(fileInput);
+  saveState();
+  showAdminMessage(type === "logo" ? "Логотип возвращён." : "Обложка возвращена.", false);
+  render();
+  openAdminPanel();
 }
 
 function renderParticipantPhotoOptions() {
@@ -2261,6 +2363,7 @@ async function saveParticipantPhoto() {
   }
 
   participant.picture = await getImageValue(participantPhotoUrlInput, participantPhotoFileInput, participant.picture || "");
+  participant.profileUpdatedAt = Date.now();
   clearFileInput(participantPhotoFileInput);
   saveState();
   showAdminMessage("Фото участника сохранено.", false);
@@ -2274,6 +2377,7 @@ function clearParticipantPhoto() {
   const participant = findParticipant(participantPhotoSelect.value);
   if (!participant) return;
   participant.picture = "";
+  participant.profileUpdatedAt = Date.now();
   clearFileInput(participantPhotoFileInput);
   saveState();
   showAdminMessage("Фото участника удалено.", false);

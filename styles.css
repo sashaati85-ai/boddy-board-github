@@ -2185,6 +2185,21 @@ body.is-dragging-card * {
   font-size: 14px;
 }
 
+.admin-site-image-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-image-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.admin-image-actions button {
+  width: 100%;
+}
+
 .admin-tool-head {
   display: flex;
   align-items: center;
@@ -2766,6 +2781,10 @@ body.is-dragging-card * {
   }
 
   .admin-inactivity-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-image-actions {
     grid-template-columns: 1fr;
   }
 

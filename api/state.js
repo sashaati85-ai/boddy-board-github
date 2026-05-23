@@ -13,6 +13,7 @@ function normalizeSharedState(value) {
     adminPasswordChanged: Boolean(source.adminPasswordChanged),
     registrationPasswordHash: source.registrationPasswordHash || "",
     siteImages: normalizeSiteImages(source.siteImages),
+    siteImagesUpdatedAt: Number(source.siteImagesUpdatedAt || 0),
     uiText: normalizeEditableMap(source.uiText),
     uiPlaceholders: normalizeEditableMap(source.uiPlaceholders),
     inactivityThresholdDays: normalizeInactivityThresholdDays(source.inactivityThresholdDays),
@@ -34,6 +35,7 @@ function normalizeSharedState(value) {
 function normalizeParticipant(participant = {}) {
   return {
     ...participant,
+    profileUpdatedAt: Number(participant.profileUpdatedAt || 0),
     archivedGoals: sortArchivedGoals(Array.isArray(participant.archivedGoals) ? participant.archivedGoals : []),
   };
 }
@@ -71,7 +73,7 @@ module.exports = async function handler(request, response) {
     });
     const currentData = currentResponse.ok
       ? normalizeSharedState(await currentResponse.json())
-      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), uiText: {}, uiPlaceholders: {}, inactivityThresholdDays: 7, inactivityThresholdUpdatedAt: 0, announcements: [], announcement: null, announcementDeletedAt: 0, deletedAnnouncementIds: [], deletedParticipantIds: [] };
+      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), siteImagesUpdatedAt: 0, uiText: {}, uiPlaceholders: {}, inactivityThresholdDays: 7, inactivityThresholdUpdatedAt: 0, announcements: [], announcement: null, announcementDeletedAt: 0, deletedAnnouncementIds: [], deletedParticipantIds: [] };
     const deletedIds = new Set([
       ...currentData.deletedParticipantIds,
       ...data.deletedParticipantIds,
@@ -82,10 +84,11 @@ module.exports = async function handler(request, response) {
     data.registrationPasswordHash = data.registrationPasswordHash || (
       data.allowEmptyRegistrationPassword ? "" : currentData.registrationPasswordHash
     );
-    data.siteImages = {
-      logo: data.siteImages.logo || currentData.siteImages.logo,
-      cover: data.siteImages.cover || currentData.siteImages.cover,
-    };
+    data.siteImages = getNewestSiteImages(currentData, data);
+    data.siteImagesUpdatedAt = Math.max(
+      Number(currentData.siteImagesUpdatedAt || 0),
+      Number(data.siteImagesUpdatedAt || 0),
+    );
     data.uiText = { ...currentData.uiText, ...data.uiText };
     data.uiPlaceholders = { ...currentData.uiPlaceholders, ...data.uiPlaceholders };
     data.inactivityThresholdDays = getNewestInactivityThreshold(currentData, data);
@@ -271,6 +274,13 @@ function getNewestInactivityThreshold(currentData, incomingData) {
   );
 }
 
+function getNewestSiteImages(currentData, incomingData) {
+  const currentTime = Number(currentData.siteImagesUpdatedAt || 0);
+  const incomingTime = Number(incomingData.siteImagesUpdatedAt || 0);
+  const source = incomingTime > currentTime ? incomingData : currentData;
+  return normalizeSiteImages(source.siteImages);
+}
+
 function mergeParticipants(currentParticipants = [], incomingParticipants = [], deletedIds = new Set()) {
   const participantsById = new Map();
 
@@ -305,12 +315,17 @@ function mergeParticipant(currentParticipant = {}, incomingParticipant = {}) {
     : useCurrentGoalState
       ? currentParticipant
       : incomingParticipant;
+  const profileSource = getNewestProfileSource(currentParticipant, incomingParticipant);
 
   return {
     ...currentParticipant,
     ...incomingParticipant,
     passwordHash: incomingParticipant.passwordHash || currentParticipant.passwordHash || "",
-    picture: incomingParticipant.picture || currentParticipant.picture || "",
+    picture: hasOwn(profileSource, "picture") ? profileSource.picture || "" : incomingParticipant.picture || currentParticipant.picture || "",
+    profileUpdatedAt: Math.max(
+      Number(currentParticipant.profileUpdatedAt || 0),
+      Number(incomingParticipant.profileUpdatedAt || 0),
+    ),
     email: incomingParticipant.email || currentParticipant.email || "",
     authProvider: incomingParticipant.authProvider || currentParticipant.authProvider || "",
     goal: hasOwn(goalSource, "goal") ? goalSource.goal || "" : currentParticipant.goal || "",
@@ -329,6 +344,15 @@ function mergeParticipant(currentParticipant = {}, incomingParticipant = {}) {
     tasks: chooseTaskList(currentParticipant.tasks, incomingParticipant.tasks, currentParticipant, incomingParticipant),
     completedGoalNotice: chooseCompletedGoalNotice(currentParticipant, incomingParticipant),
   };
+}
+
+function getNewestProfileSource(currentParticipant = {}, incomingParticipant = {}) {
+  const currentTime = Number(currentParticipant.profileUpdatedAt || 0);
+  const incomingTime = Number(incomingParticipant.profileUpdatedAt || 0);
+  if (currentTime || incomingTime) {
+    return incomingTime >= currentTime ? incomingParticipant : currentParticipant;
+  }
+  return incomingParticipant.picture || !currentParticipant.picture ? incomingParticipant : currentParticipant;
 }
 
 function chooseCompletedGoalNotice(currentParticipant, incomingParticipant) {
