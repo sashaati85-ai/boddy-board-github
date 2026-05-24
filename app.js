@@ -10,6 +10,7 @@ const DEFAULT_LOGO_URL = "assets/boddy-rocket-logo.png";
 const LEGACY_DEFAULT_COVER_URL = "assets/boddy-cover.png";
 const DEFAULT_COVER_URL = "assets/boddy-premium-cover.png";
 const DEFAULT_WELCOME_COVER_URL = "assets/boddy-welcome-cover.png";
+const STATUS_LOGO_URL = "assets/boddy-status-logo.png";
 const COMPLETED_GOAL_NOTICE_TTL = 7 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STATUS_TIERS = [
@@ -599,6 +600,8 @@ function normalizeState(candidate) {
           archivedAt: goal.archivedAt || Date.now(),
         })))
       : [],
+    deletedTaskIds: normalizeDeletedItemIds(person.deletedTaskIds),
+    deletedSubtaskIds: normalizeDeletedItemIds(person.deletedSubtaskIds),
     tasks: Array.isArray(person.tasks)
       ? person.tasks.map((task, taskIndex) => ({
           id: task.id || crypto.randomUUID(),
@@ -706,6 +709,11 @@ function normalizeAnnouncementList(source = {}) {
     if (timeDiff !== 0) return timeDiff;
     return String(second.id).localeCompare(String(first.id));
   });
+}
+
+function normalizeDeletedItemIds(ids = []) {
+  if (!Array.isArray(ids)) return [];
+  return [...new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))];
 }
 
 function normalizeAnnouncementRecipient(recipient) {
@@ -1036,6 +1044,8 @@ function createGoogleParticipant({ email, name, picture, isNew }) {
     taskListUpdatedAt: Date.now(),
     tasks: [],
     archivedGoals: [],
+    deletedTaskIds: [],
+    deletedSubtaskIds: [],
     onboardingCompleted: false,
   };
   state.participants.push(participant);
@@ -1632,6 +1642,8 @@ function mergeParticipant(baseParticipant, nextParticipant) {
     baseGoalCycleStartedAt > nextGoalCycleStartedAt;
   const goalSource = useNextGoalState ? nextParticipant : useBaseGoalState ? baseParticipant : nextParticipant;
   const profileSource = getNewestProfileSource(baseParticipant, nextParticipant);
+  const deletedTaskIds = mergeDeletedItemIds(baseParticipant.deletedTaskIds, nextParticipant.deletedTaskIds);
+  const deletedSubtaskIds = mergeDeletedItemIds(baseParticipant.deletedSubtaskIds, nextParticipant.deletedSubtaskIds);
 
   return {
     ...baseParticipant,
@@ -1666,9 +1678,22 @@ function mergeParticipant(baseParticipant, nextParticipant) {
       nextParticipant.deadlineWarningDismissedFor || baseParticipant.deadlineWarningDismissedFor || "",
     onboardingCompleted: Boolean(nextParticipant.onboardingCompleted || baseParticipant.onboardingCompleted),
     archivedGoals: mergeById(baseParticipant.archivedGoals, nextParticipant.archivedGoals),
-    tasks: chooseTaskList(baseParticipant.tasks, nextParticipant.tasks, baseParticipant, nextParticipant),
+    deletedTaskIds,
+    deletedSubtaskIds,
+    tasks: chooseTaskList(
+      baseParticipant.tasks,
+      nextParticipant.tasks,
+      baseParticipant,
+      nextParticipant,
+      deletedTaskIds,
+      deletedSubtaskIds,
+    ),
     completedGoalNotice: chooseCompletedGoalNotice(baseParticipant, nextParticipant),
   };
+}
+
+function mergeDeletedItemIds(baseIds = [], nextIds = []) {
+  return normalizeDeletedItemIds([...(baseIds || []), ...(nextIds || [])]);
 }
 
 function chooseCompletedGoalNotice(baseParticipant, nextParticipant) {
@@ -1712,24 +1737,37 @@ function getArchivedGoalTime(goal = {}) {
   return Math.max(Number(goal.completedAt || 0), Number(goal.archivedAt || 0));
 }
 
-function chooseTaskList(baseTasks = [], nextTasks = [], baseParticipant = {}, nextParticipant = {}) {
+function chooseTaskList(
+  baseTasks = [],
+  nextTasks = [],
+  baseParticipant = {},
+  nextParticipant = {},
+  deletedTaskIds = [],
+  deletedSubtaskIds = [],
+) {
+  const deletedTaskSet = new Set(normalizeDeletedItemIds(deletedTaskIds));
+  const deletedSubtaskSet = new Set(normalizeDeletedItemIds(deletedSubtaskIds));
+  const filteredBaseTasks = filterDeletedTasks(baseTasks, deletedTaskSet)
+    .map((task) => filterTaskDeletedSubtasks(task, deletedSubtaskSet));
+  const filteredNextTasks = filterDeletedTasks(nextTasks, deletedTaskSet)
+    .map((task) => filterTaskDeletedSubtasks(task, deletedSubtaskSet));
   const baseTaskListUpdatedAt = getParticipantTaskListUpdatedAt(baseParticipant);
   const nextTaskListUpdatedAt = getParticipantTaskListUpdatedAt(nextParticipant);
-  if (nextTasks.length === 0 && baseTasks.length > 0) {
-    return nextTaskListUpdatedAt >= baseTaskListUpdatedAt ? [] : baseTasks;
+  if (filteredNextTasks.length === 0 && filteredBaseTasks.length > 0) {
+    return nextTaskListUpdatedAt >= baseTaskListUpdatedAt ? [] : filteredBaseTasks;
   }
-  if (baseTasks.length === 0) return nextTasks;
+  if (filteredBaseTasks.length === 0) return filteredNextTasks;
   const tasksById = new Map();
-  baseTasks.forEach((task) => {
+  filteredBaseTasks.forEach((task) => {
     if (task?.id) tasksById.set(task.id, task);
   });
-  nextTasks.forEach((task) => {
-    if (task?.id) tasksById.set(task.id, mergeTask(tasksById.get(task.id), task));
+  filteredNextTasks.forEach((task) => {
+    if (task?.id) tasksById.set(task.id, mergeTask(tasksById.get(task.id), task, deletedSubtaskIds));
   });
 
-  const preferredOrder = getTaskListUpdatedAt(nextTasks) >= getTaskListUpdatedAt(baseTasks)
-    ? nextTasks
-    : baseTasks;
+  const preferredOrder = getTaskListUpdatedAt(filteredNextTasks) >= getTaskListUpdatedAt(filteredBaseTasks)
+    ? filteredNextTasks
+    : filteredBaseTasks;
   const orderedTasks = [];
   preferredOrder.forEach((task) => {
     const mergedTask = tasksById.get(task.id);
@@ -1739,14 +1777,26 @@ function chooseTaskList(baseTasks = [], nextTasks = [], baseParticipant = {}, ne
   return orderTasksByCompletion([...orderedTasks, ...tasksById.values()]);
 }
 
-function mergeTask(baseTask, nextTask) {
+function filterDeletedTasks(tasks = [], deletedTaskSet = new Set()) {
+  return tasks.filter((task) => task?.id && !deletedTaskSet.has(task.id));
+}
+
+function filterTaskDeletedSubtasks(task = {}, deletedSubtaskSet = new Set()) {
+  if (!Array.isArray(task.subtasks) || deletedSubtaskSet.size === 0) return task;
+  return {
+    ...task,
+    subtasks: filterDeletedSubtasks(task.subtasks, deletedSubtaskSet),
+  };
+}
+
+function mergeTask(baseTask, nextTask, deletedSubtaskIds = []) {
   if (!baseTask) return nextTask;
   if (!nextTask) return baseTask;
 
   const useNextTask = getItemUpdatedAt(nextTask) >= getItemUpdatedAt(baseTask);
   const preferredTask = useNextTask ? nextTask : baseTask;
   const fallbackTask = useNextTask ? baseTask : nextTask;
-  const subtasks = mergeSubtasks(baseTask.subtasks, nextTask.subtasks);
+  const subtasks = mergeSubtasks(baseTask.subtasks, nextTask.subtasks, deletedSubtaskIds);
   const hasSubtasks = subtasks.length > 0;
 
   return {
@@ -1762,20 +1812,23 @@ function mergeTask(baseTask, nextTask) {
   };
 }
 
-function mergeSubtasks(baseSubtasks = [], nextSubtasks = []) {
+function mergeSubtasks(baseSubtasks = [], nextSubtasks = [], deletedSubtaskIds = []) {
+  const deletedSubtaskSet = new Set(normalizeDeletedItemIds(deletedSubtaskIds));
+  const filteredBaseSubtasks = filterDeletedSubtasks(baseSubtasks, deletedSubtaskSet);
+  const filteredNextSubtasks = filterDeletedSubtasks(nextSubtasks, deletedSubtaskSet);
   const subtasksById = new Map();
-  baseSubtasks.forEach((subtask) => {
+  filteredBaseSubtasks.forEach((subtask) => {
     if (subtask?.id) subtasksById.set(subtask.id, subtask);
   });
-  nextSubtasks.forEach((subtask) => {
+  filteredNextSubtasks.forEach((subtask) => {
     if (!subtask?.id) return;
     const currentSubtask = subtasksById.get(subtask.id);
     subtasksById.set(subtask.id, mergeSubtask(currentSubtask, subtask));
   });
 
-  const preferredOrder = getTaskListUpdatedAt(nextSubtasks) >= getTaskListUpdatedAt(baseSubtasks)
-    ? nextSubtasks
-    : baseSubtasks;
+  const preferredOrder = getTaskListUpdatedAt(filteredNextSubtasks) >= getTaskListUpdatedAt(filteredBaseSubtasks)
+    ? filteredNextSubtasks
+    : filteredBaseSubtasks;
   const orderedSubtasks = [];
   preferredOrder.forEach((subtask) => {
     const mergedSubtask = subtasksById.get(subtask.id);
@@ -1783,6 +1836,10 @@ function mergeSubtasks(baseSubtasks = [], nextSubtasks = []) {
     subtasksById.delete(subtask.id);
   });
   return orderSubtasksByCompletion([...orderedSubtasks, ...subtasksById.values()]);
+}
+
+function filterDeletedSubtasks(subtasks = [], deletedSubtaskSet = new Set()) {
+  return subtasks.filter((subtask) => subtask?.id && !deletedSubtaskSet.has(subtask.id));
 }
 
 function orderTasksByCompletion(tasks = []) {
@@ -2079,6 +2136,8 @@ async function joinAsParticipant(source = {}) {
       taskListUpdatedAt: Date.now(),
       tasks: [],
       archivedGoals: [],
+      deletedTaskIds: [],
+      deletedSubtaskIds: [],
       onboardingCompleted: false,
     };
     state.participants.push(participant);
@@ -3076,6 +3135,11 @@ function reorderTasks(participant) {
 function normalizeParticipantTasks(participant) {
   if (!participant || !Array.isArray(participant.tasks)) return;
 
+  const deletedTaskSet = new Set(normalizeDeletedItemIds(participant.deletedTaskIds));
+  const deletedSubtaskSet = new Set(normalizeDeletedItemIds(participant.deletedSubtaskIds));
+  participant.tasks = filterDeletedTasks(participant.tasks, deletedTaskSet)
+    .map((task) => filterTaskDeletedSubtasks(task, deletedSubtaskSet));
+
   participant.tasks.forEach((task) => {
     if (!Array.isArray(task.subtasks)) {
       task.subtasks = [];
@@ -3170,6 +3234,7 @@ function deleteSubtask(participantId, taskId, subtaskId) {
 
   task.subtasks = task.subtasks.filter((subtask) => subtask.id !== subtaskId);
   const now = Date.now();
+  rememberDeletedSubtask(participant, subtaskId);
   task.updatedAt = now;
   participant.taskListUpdatedAt = now;
   reorderSubtasks(task);
@@ -3498,11 +3563,26 @@ function deleteTask(participantId, taskId) {
   const participant = findParticipant(participantId);
   if (!participant || !isActive(participantId)) return;
 
-  participant.tasks = participant.tasks.filter((task) => task.id !== taskId);
+  const task = participant.tasks.find((item) => item.id === taskId);
+  rememberDeletedTask(participant, taskId);
+  if (task && Array.isArray(task.subtasks)) {
+    task.subtasks.forEach((subtask) => rememberDeletedSubtask(participant, subtask.id));
+  }
+  participant.tasks = participant.tasks.filter((item) => item.id !== taskId);
   participant.taskListUpdatedAt = Date.now();
   archiveFinishedGoal(participant);
   saveState();
   render();
+}
+
+function rememberDeletedTask(participant, taskId) {
+  if (!participant || !taskId) return;
+  participant.deletedTaskIds = mergeDeletedItemIds(participant.deletedTaskIds, [taskId]);
+}
+
+function rememberDeletedSubtask(participant, subtaskId) {
+  if (!participant || !subtaskId) return;
+  participant.deletedSubtaskIds = mergeDeletedItemIds(participant.deletedSubtaskIds, [subtaskId]);
 }
 
 async function deleteAccount(participantId) {
@@ -5194,7 +5274,11 @@ function renderStatusCard(node, status) {
   card.dataset.activity = status.activity.key;
   setPremiumIconText(card.querySelector(".status-pill"), status.iconName, status.title);
   const emblem = card.querySelector(".status-emblem");
-  emblem.replaceChildren(createPremiumIcon(status.iconName, { size: "large" }));
+  const logo = document.createElement("img");
+  logo.className = "status-emblem-logo";
+  logo.src = STATUS_LOGO_URL;
+  logo.alt = "";
+  emblem.replaceChildren(logo);
   card.querySelector(".status-title").textContent = status.title;
   card.querySelector(".status-description").textContent = status.description;
   setPremiumIconText(card.querySelector(".status-streak"), "flame", `Серия: ${formatDayCount(status.streak)}`);

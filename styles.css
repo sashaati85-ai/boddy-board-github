@@ -1703,6 +1703,11 @@ tbody tr.is-viewed {
   border-radius: 16px;
 }
 
+.status-card-compact .status-emblem-logo {
+  width: 34px;
+  height: 34px;
+}
+
 .status-card-compact .premium-icon-large {
   width: 28px;
   height: 28px;
@@ -1822,6 +1827,14 @@ tbody tr.is-viewed {
   box-shadow:
     0 12px 24px rgba(122, 84, 40, 0.12),
     inset 0 0 0 1px rgba(183, 134, 63, 0.14);
+}
+
+.status-emblem-logo {
+  display: block;
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 12px rgba(184, 138, 50, 0.18));
 }
 
 .status-title {
