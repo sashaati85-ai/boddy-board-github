@@ -59,6 +59,21 @@
         <input id="coverImageInput" class="image-picker-input" type="file" accept="image/*" aria-label="Поменять обложку">
       </section>
 
+      <section class="stats-grid" aria-label="Общая сводка группы">
+        <article class="stat-card">
+          <span data-edit-key="peopleCountLabel">Участников</span>
+          <strong id="peopleCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span data-edit-key="totalTasksLabel">Всего шагов</span>
+          <strong id="totalTasks">0</strong>
+        </article>
+        <article class="stat-card highlight">
+          <span data-edit-key="doneTasksLabel">Готово</span>
+          <strong id="doneTasks">0</strong>
+        </article>
+      </section>
+
       <section class="results-panel" aria-label="Таблица и график результатов">
         <div>
           <div class="section-heading">
@@ -92,21 +107,6 @@
         <div class="participant-path-scroll" aria-label="Этапы пути участников">
           <div id="participantPath" class="participant-path"></div>
         </div>
-      </section>
-
-      <section class="stats-grid" aria-label="Общая сводка группы">
-        <article class="stat-card">
-          <span data-edit-key="peopleCountLabel">Участников</span>
-          <strong id="peopleCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span data-edit-key="totalTasksLabel">Всего шагов</span>
-          <strong id="totalTasks">0</strong>
-        </article>
-        <article class="stat-card highlight">
-          <span data-edit-key="doneTasksLabel">Готово</span>
-          <strong id="doneTasks">0</strong>
-        </article>
       </section>
 
       <section id="personalEntry" class="personal-entry" aria-label="Личный кабинет"></section>

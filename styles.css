@@ -454,8 +454,7 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
 
 .result-chart,
 .table-wrap,
-.profile-view,
-.stat-card {
+.profile-view {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(255, 253, 248, 0.92);
@@ -1120,10 +1119,11 @@ tbody tr.is-viewed {
 }
 
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin: 0 0 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: -6px 2px 18px;
 }
 
 .is-profile-view .hero-card,
@@ -1136,28 +1136,35 @@ tbody tr.is-viewed {
 }
 
 .stat-card {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 88px;
-  padding: 17px 20px;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(201, 164, 92, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.7);
+  box-shadow: 0 8px 20px rgba(107, 74, 45, 0.045);
+  backdrop-filter: blur(8px);
 }
 
 .stat-card.highlight {
-  border-color: rgba(201, 154, 69, 0.3);
-  background: #fff6e7;
+  border-color: rgba(201, 164, 92, 0.3);
+  background: rgba(247, 239, 226, 0.76);
 }
 
 .stat-card span {
   color: var(--muted);
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .stat-card strong {
-  color: var(--text);
-  font-size: 38px;
+  color: var(--brown);
+  font-size: 17px;
+  font-weight: 950;
   line-height: 1;
 }
 
@@ -1671,6 +1678,7 @@ tbody tr.is-viewed {
 }
 
 .status-card-compact {
+  position: relative;
   display: grid;
   align-content: start;
   gap: 14px;
@@ -1703,11 +1711,6 @@ tbody tr.is-viewed {
   border-radius: 16px;
 }
 
-.status-card-compact .status-emblem-logo {
-  width: 34px;
-  height: 34px;
-}
-
 .status-card-compact .premium-icon-large {
   width: 28px;
   height: 28px;
@@ -1729,6 +1732,19 @@ tbody tr.is-viewed {
 
 .status-card-compact .status-metric {
   width: 100%;
+}
+
+.status-card-compact .status-brand-logo {
+  display: block;
+  width: min(112px, 56%);
+  max-width: 118px;
+  height: auto;
+  justify-self: center;
+  align-self: end;
+  margin-top: 2px;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: drop-shadow(0 10px 18px rgba(184, 138, 50, 0.18));
 }
 
 @media (max-width: 1200px) {
@@ -1753,6 +1769,7 @@ tbody tr.is-viewed {
   .status-card-compact {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     align-items: center;
+    padding-right: 72px;
   }
 
   .status-card-compact .status-card-top,
@@ -1762,6 +1779,15 @@ tbody tr.is-viewed {
 
   .status-card-compact .status-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .status-card-compact .status-brand-logo {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 44px;
+    max-width: none;
+    margin: 0;
   }
 }
 
@@ -1827,14 +1853,6 @@ tbody tr.is-viewed {
   box-shadow:
     0 12px 24px rgba(122, 84, 40, 0.12),
     inset 0 0 0 1px rgba(183, 134, 63, 0.14);
-}
-
-.status-emblem-logo {
-  display: block;
-  width: 42px;
-  height: 42px;
-  object-fit: contain;
-  filter: drop-shadow(0 7px 12px rgba(184, 138, 50, 0.18));
 }
 
 .status-title {

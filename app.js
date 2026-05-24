@@ -5274,16 +5274,21 @@ function renderStatusCard(node, status) {
   card.dataset.activity = status.activity.key;
   setPremiumIconText(card.querySelector(".status-pill"), status.iconName, status.title);
   const emblem = card.querySelector(".status-emblem");
-  const logo = document.createElement("img");
-  logo.className = "status-emblem-logo";
-  logo.src = STATUS_LOGO_URL;
-  logo.alt = "";
-  emblem.replaceChildren(logo);
+  emblem.replaceChildren(createPremiumIcon(status.iconName, { size: "large" }));
   card.querySelector(".status-title").textContent = status.title;
   card.querySelector(".status-description").textContent = status.description;
   setPremiumIconText(card.querySelector(".status-streak"), "flame", `Серия: ${formatDayCount(status.streak)}`);
   setPremiumIconText(card.querySelector(".status-record"), "trophy", `Рекорд: ${formatDayCount(status.bestStreak)}`);
   setPremiumIconText(card.querySelector(".status-activity"), status.activity.iconName, `Активность: ${status.activity.label}`);
+  let brandLogo = card.querySelector(".status-brand-logo");
+  if (!brandLogo) {
+    brandLogo = document.createElement("img");
+    brandLogo.className = "status-brand-logo";
+    brandLogo.alt = "";
+    brandLogo.setAttribute("aria-hidden", "true");
+    card.append(brandLogo);
+  }
+  brandLogo.src = STATUS_LOGO_URL;
 }
 
 function createStatusMiniBadge(participant) {
