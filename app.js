@@ -9,6 +9,7 @@ const LEGACY_DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
 const DEFAULT_LOGO_URL = "assets/boddy-rocket-logo.png";
 const LEGACY_DEFAULT_COVER_URL = "assets/boddy-cover.png";
 const DEFAULT_COVER_URL = "assets/boddy-premium-cover.png";
+const DEFAULT_WELCOME_COVER_URL = "assets/boddy-welcome-cover.png";
 const COMPLETED_GOAL_NOTICE_TTL = 7 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STATUS_TIERS = [
@@ -1136,58 +1137,88 @@ function scheduleSaveState(delay = 450) {
 
 const tourSteps = [
   {
+    view: "community",
     selector: "#activeBadge",
-    title: "Ваша текущая учётная запись",
-    text: "Стрелка указывает на вашу текущую учётную запись: имя, статус и аватар.",
+    title: "Вы вошли в свой аккаунт",
+    text: "Здесь видно, под каким именем вы сейчас на сайте. Если есть аватарка и статус, они тоже будут рядом.",
     placement: "bottom",
   },
   {
-    selector: "#resultChart",
-    title: "Движение участников",
-    text: "Здесь виден прогресс команды. Чем выше столбец — тем ближе участник к цели.",
+    view: "community",
+    selector: ".results-panel",
+    title: "Главная страница сообщества",
+    text: "Это общий экран: здесь видно движение всех участников, кто уже идёт к цели и как растёт общий результат.",
     placement: "bottom",
   },
   {
+    view: "community",
     selector: ".participant-path-panel",
     title: "Путь участников",
-    text: "Здесь видно, как участники поднимаются по этапам дисциплины: от начала пути до пика стабильности.",
+    text: "Этот блок показывает, на каком этапе дисциплины находятся люди: от первых дней до сильной стабильности.",
     placement: "bottom",
   },
   {
+    view: "community",
     selector: "#resultTable",
-    title: "Таблица участников",
-    text: "В таблице показаны участники, их цель, срок и сколько шагов выполнено.",
+    title: "Кто поставил цель",
+    text: "В таблице отображаются участники, которые уже написали цель и выбрали дату. Здесь видно срок и прогресс.",
     placement: "right",
   },
   {
+    view: "community",
+    selector: "#personalEntry",
+    title: "Личный кабинет",
+    text: "Нажмите эту карточку, чтобы перейти в свой личный путь: цель, шаги, статус и архив достижений.",
+    placement: "top",
+  },
+  {
+    view: "profile",
+    selector: ".goal-journey",
+    title: "Ваш путь к цели",
+    text: "Здесь ваша цель превращается в маршрут. Большие точки — основные шаги, маленькие — дополнительные шаги, кубок — финал.",
+    placement: "bottom",
+  },
+  {
+    view: "profile",
     selector: ".status-card",
     title: "Мой статус",
-    text: "Эта карточка показывает вашу серию дней, рекорд, активность и текущий статус дисциплины.",
+    text: "Карточка показывает уровень дисциплины, серию дней, лучший рекорд и текущую активность.",
     placement: "right",
   },
   {
+    view: "profile",
     selector: ".person-goal",
-    title: "Основная цель",
-    text: "Впишите сюда основную цель. Она станет центральной задачей вашего профиля.",
+    title: "Основная цель и дата",
+    text: "Сначала напишите главную цель и выберите срок. После подтверждения дату сможет изменить только администратор.",
     placement: "right",
   },
   {
+    view: "profile",
     selector: ".task-form .task-input",
-    title: "Добавление шагов",
-    text: "Введите основной шаг сюда, чтобы создать новую карточку плана.",
+    title: "Добавление основных шагов",
+    text: "Разбейте цель на понятные действия. Каждый новый шаг станет отдельной карточкой плана.",
     placement: "top",
   },
   {
+    view: "profile",
     selector: ".add-subtask",
     title: "Дополнительные шаги",
-    text: "Нажмите «Добавить доп. шаг», чтобы разбить основной шаг на дополнительные действия.",
+    text: "Внутри основного шага можно добавить маленькие действия. Выполняйте их по порядку или сначала переставьте нужный шаг выше.",
     placement: "top",
   },
   {
+    view: "profile",
     selector: ".person-progress",
     title: "Прогресс цели",
-    text: "Здесь отображается ваш прогресс: процент и количество выполненных шагов.",
+    text: "Процент, выполненные шаги и путь к цели пересчитываются сразу, когда вы ставите или снимаете галочку.",
     placement: "left",
+  },
+  {
+    view: "profile",
+    selector: ".goal-archive",
+    title: "Архив достижений",
+    text: "Когда цель завершена или срок прошёл, она попадает сюда. Архив хранит историю вашего движения.",
+    placement: "top",
   },
 ];
 
@@ -1199,12 +1230,6 @@ let adminParticipantsExpanded = false;
 
 function openTour(participantId) {
   if (!tourModal || !tourCard) return;
-  const participant = findParticipant(participantId);
-  if (participant) {
-    state.viewedParticipantId = participant.id;
-    currentView = "profile";
-    render();
-  }
   currentTourParticipantId = participantId;
   currentTourStep = 0;
   loginModal.hidden = true;
@@ -1219,6 +1244,7 @@ function openTour(participantId) {
 function renderTourStep() {
   if (!tourModal || tourModal.hidden) return;
   const step = tourSteps[currentTourStep];
+  if (syncTourStepView(step)) return;
   tourTitle.textContent = step.title;
   tourDescription.textContent = step.text;
   tourStepCounter.textContent = `Шаг ${currentTourStep + 1} из ${tourSteps.length}`;
@@ -1227,6 +1253,29 @@ function renderTourStep() {
   const target = getTourTarget(step);
   updateTourHighlight(target);
   positionTourCard(target, step.placement || "bottom");
+}
+
+function syncTourStepView(step) {
+  const participant = findParticipant(currentTourParticipantId);
+  const nextView = step?.view || "profile";
+  let needsRender = false;
+
+  if (participant && state.viewedParticipantId !== participant.id) {
+    state.viewedParticipantId = participant.id;
+    needsRender = true;
+  }
+
+  if (currentView !== nextView) {
+    currentView = nextView;
+    needsRender = true;
+  }
+
+  if (needsRender) {
+    render();
+    return true;
+  }
+
+  return false;
 }
 
 function getTourTarget(step) {
@@ -1243,7 +1292,23 @@ function getTourTarget(step) {
     return document.querySelector(".person-goal") || document.querySelector("#profileView");
   }
 
-  return document.querySelector("#profileView") || document.body;
+  if (step.selector === "#personalEntry") {
+    return document.querySelector("#personalEntry") || document.querySelector(".stats-grid") || document.body;
+  }
+
+  if (step.selector === ".goal-journey") {
+    return document.querySelector(".goal-journey-shell") || document.querySelector("#profileView") || document.body;
+  }
+
+  if (step.selector === ".goal-archive") {
+    return document.querySelector(".goal-archive") || document.querySelector("#profileView") || document.body;
+  }
+
+  return document.querySelector(nextTourFallbackSelector(step)) || document.body;
+}
+
+function nextTourFallbackSelector(step) {
+  return step?.view === "community" ? "main" : "#profileView";
 }
 
 function isTourTargetVisible(target) {
@@ -2364,7 +2429,7 @@ function renderSiteImages() {
     heroCover.title = state.isAdmin ? "Нажмите, чтобы поменять обложку" : "";
   }
   if (welcomeCover) {
-    welcomeCover.src = siteImages.cover;
+    welcomeCover.src = DEFAULT_WELCOME_COVER_URL;
   }
 }
 
