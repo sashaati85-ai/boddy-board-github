@@ -3475,38 +3475,22 @@ function isTaskComplete(task) {
   return Boolean(task.done);
 }
 
-function getTaskProgressRatio(task) {
-  if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
-    const doneSubtasks = task.subtasks.filter((subtask) => Boolean(subtask.done)).length;
-    return doneSubtasks / task.subtasks.length;
-  }
-  return task.done ? 1 : 0;
-}
-
 function getProgress(tasks) {
-  const total = tasks.length;
-  const done = tasks.filter((task) => isTaskComplete(task)).length;
-  const progressUnits = tasks.reduce((sum, task) => sum + getTaskProgressRatio(task), 0);
-  const percent = total === 0 ? 0 : Math.round((progressUnits / total) * 100);
-  return { total, done, percent };
+  return getGoalProgress(tasks);
 }
 
 function getCompletedActionCount(tasks = []) {
-  return tasks.reduce((count, task) => {
-    const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
-    if (subtasks.length > 0) {
-      return count + subtasks.filter((subtask) => Boolean(subtask.done)).length;
-    }
-    return count + (isTaskComplete(task) ? 1 : 0);
-  }, 0);
+  return getGoalProgress(tasks).done;
 }
 
 function getActionProgress(tasks = []) {
-  const total = tasks.reduce((count, task) => {
-    const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
-    return count + (subtasks.length > 0 ? subtasks.length : 1);
-  }, 0);
-  const done = getCompletedActionCount(tasks);
+  return getGoalProgress(tasks);
+}
+
+function getGoalProgress(tasks = []) {
+  const points = getGoalJourneyPoints(tasks);
+  const total = points.length;
+  const done = points.filter((point) => point.done).length;
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   return { total, done, percent };
 }
@@ -4745,9 +4729,8 @@ function orderJourneyPointsByProgress(points = []) {
 }
 
 function getJourneyRatio(index, total) {
-  const finalPointRatio = 0.84;
-  if (total <= 1) return 0.42;
-  return (index / (total - 1)) * finalPointRatio;
+  if (total <= 1) return 0.72;
+  return index / (total - 1);
 }
 
 function getLastCompletedJourneyIndex(points = []) {
