@@ -532,8 +532,12 @@ async function loadState() {
 
   try {
     const sharedState = await fetchSharedState();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(sharedState)));
-    return sharedState;
+    const mergedState = mergeSharedStates(sharedState, localState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(mergedState)));
+    if (JSON.stringify(toSharedState(mergedState)) !== JSON.stringify(toSharedState(sharedState))) {
+      saveSharedState(mergedState);
+    }
+    return mergedState;
   } catch {
     return localState;
   }
@@ -1098,7 +1102,23 @@ function saveState(options = {}) {
   persistLocalSession();
   lastLocalWriteAt = Date.now();
   pendingSharedSaveCount += 1;
-  return saveSharedState(state, options).finally(() => {
+  return saveSharedState(state, options).then((savedState) => {
+    if (savedState) {
+      const activeParticipantId = state.activeParticipantId;
+      const viewedParticipantId = state.viewedParticipantId;
+      const isAdmin = state.isAdmin;
+      state = normalizeState(savedState);
+      state.activeParticipantId = state.participants.some((person) => person.id === activeParticipantId)
+        ? activeParticipantId
+        : "";
+      state.viewedParticipantId = state.participants.some((person) => person.id === viewedParticipantId)
+        ? viewedParticipantId
+        : state.participants[0]?.id || "";
+      state.isAdmin = isAdmin;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(state)));
+    }
+    return Boolean(savedState);
+  }).finally(() => {
     pendingSharedSaveCount = Math.max(0, pendingSharedSaveCount - 1);
   });
 }
@@ -1407,6 +1427,8 @@ async function fetchSharedStateWithTimeout(timeout = 2500) {
 
 async function saveSharedState(source, options = {}) {
   const sharedState = await prepareSharedStateForSave(source, options);
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 8000);
 
   try {
     const response = await fetch(SHARED_STATE_URL, {
@@ -1416,15 +1438,18 @@ async function saveSharedState(source, options = {}) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(sharedState),
+      signal: controller.signal,
     });
     if (!response.ok) {
       throw new Error(`Shared state PUT failed: ${response.status}`);
     }
-    return true;
+    return normalizeState(await response.json());
   } catch (error) {
     console.warn("Не удалось синхронизировать общую доску.", error);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
-    return false;
+    return null;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -1657,11 +1682,12 @@ function mergeTask(baseTask, nextTask) {
   const preferredTask = useNextTask ? nextTask : baseTask;
   const fallbackTask = useNextTask ? baseTask : nextTask;
   const subtasks = mergeSubtasks(baseTask.subtasks, nextTask.subtasks);
+  const hasSubtasks = subtasks.length > 0;
 
   return {
     ...fallbackTask,
     ...preferredTask,
-    done: Boolean(baseTask.done || nextTask.done),
+    done: hasSubtasks ? false : Boolean(preferredTask.done),
     order: getPreferredOrder(preferredTask, fallbackTask),
     completedAt: Number(preferredTask.completedAt || fallbackTask.completedAt || 0),
     subtasksHidden: isTaskComplete({ ...fallbackTask, ...preferredTask, subtasks })
@@ -1762,7 +1788,7 @@ function mergeSubtask(baseSubtask, nextSubtask) {
   return {
     ...fallbackSubtask,
     ...preferredSubtask,
-    done: Boolean(baseSubtask.done || nextSubtask.done),
+    done: Boolean(preferredSubtask.done),
     order: getPreferredOrder(preferredSubtask, fallbackSubtask),
     completedAt: Number(preferredSubtask.completedAt || fallbackSubtask.completedAt || 0),
   };

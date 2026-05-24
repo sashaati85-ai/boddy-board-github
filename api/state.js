@@ -1,5 +1,5 @@
 const STORE_URL = process.env.BODDY_STATE_STORE_URL ||
-  "https://jsonblob.com/api/jsonBlob/019e53b9-a81b-7f5c-9463-7e3e842e65b2";
+  "https://jsonblob.com/api/jsonBlob/019e5b0c-44a0-7548-bff9-05e894ab9748";
 const LEGACY_DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
 const DEFAULT_LOGO_URL = "assets/boddy-rocket-logo.png";
 const LEGACY_DEFAULT_COVER_URL = "assets/boddy-cover.png";
@@ -435,12 +435,14 @@ function mergeTask(currentTask = {}, incomingTask = {}) {
   const preferredTask = useIncomingTask ? incomingTask : currentTask;
   const fallbackTask = useIncomingTask ? currentTask : incomingTask;
   const subtasks = mergeSubtasks(currentTask.subtasks, incomingTask.subtasks);
+  const hasSubtasks = subtasks.length > 0;
 
   return {
     ...fallbackTask,
     ...preferredTask,
-    done: Boolean(currentTask.done || incomingTask.done),
+    done: hasSubtasks ? false : Boolean(preferredTask.done),
     order: getPreferredOrder(preferredTask, fallbackTask),
+    completedAt: Number(preferredTask.completedAt || fallbackTask.completedAt || 0),
     subtasksHidden: subtasks.length > 0 && subtasks.every((subtask) => Boolean(subtask.done))
       ? true
       : Boolean(preferredTask.subtasksHidden),
@@ -535,8 +537,9 @@ function mergeSubtask(currentSubtask = null, incomingSubtask = null) {
   return {
     ...fallbackSubtask,
     ...preferredSubtask,
-    done: Boolean(currentSubtask.done || incomingSubtask.done),
+    done: Boolean(preferredSubtask.done),
     order: getPreferredOrder(preferredSubtask, fallbackSubtask),
+    completedAt: Number(preferredSubtask.completedAt || fallbackSubtask.completedAt || 0),
   };
 }
 
