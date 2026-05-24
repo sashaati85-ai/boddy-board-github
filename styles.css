@@ -9,6 +9,10 @@
   --vk-blue: #b7863f;
   --vk-blue-dark: #7a5428;
   --sky: #d8b46f;
+  --gold: #c9a45c;
+  --gold-soft: #e8d8b8;
+  --champagne: #f7efe2;
+  --brown: #6b4a2d;
   --orange: #c99a45;
   --orange-dark: #8f642c;
   --progress-gradient: linear-gradient(90deg, #8f642c 0%, #c99a45 42%, #f1d27a 72%, #b7863f 100%);
@@ -16,6 +20,53 @@
   --done: #6f8b5f;
   --shadow: 0 16px 40px rgba(92, 63, 31, 0.11);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.premium-icon {
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--gold);
+  filter: drop-shadow(0 4px 8px rgba(107, 74, 45, 0.12));
+}
+
+.premium-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.premium-icon-small {
+  width: 15px;
+  height: 15px;
+}
+
+.premium-icon-medium {
+  width: 26px;
+  height: 26px;
+}
+
+.premium-icon-large {
+  width: 38px;
+  height: 38px;
+}
+
+.premium-icon-text,
+.status-mini-title,
+.status-mini-streak,
+.status-pill,
+.status-metric,
+.goal-card-badge,
+.archive-badge,
+.goal-completion-kicker,
+.goal-completion-grid span,
+.archive-achievement-metric small,
+.participant-path-zone-title,
+.participant-path-info span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 * {
@@ -452,11 +503,12 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
 }
 
 .place-icon {
+  display: inline-flex;
   min-width: 28px;
-  color: var(--orange);
-  font-size: 20px;
-  line-height: 1;
-  text-align: center;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--gold);
 }
 
 .dashboard-avatar {
@@ -476,16 +528,18 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
 .champion-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   min-height: 24px;
   padding: 4px 9px;
+  border: 1px solid rgba(201, 164, 92, 0.28);
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--orange), #d7b66e);
-  color: #fffaf1;
+  background: linear-gradient(135deg, rgba(247, 239, 226, 0.96), rgba(255, 253, 248, 0.84));
+  color: var(--brown);
   font-size: 12px;
   font-weight: 950;
   line-height: 1;
   white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(107, 74, 45, 0.08);
 }
 
 .completed-goal-note {
@@ -509,7 +563,8 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
 
 .chart-row[data-place="2"] .champion-badge,
 .chart-row[data-place="3"] .champion-badge {
-  background: #8f642c;
+  background: linear-gradient(135deg, rgba(247, 239, 226, 0.98), rgba(232, 216, 184, 0.54));
+  color: var(--brown);
 }
 
 .chart-track,
@@ -603,18 +658,18 @@ tbody tr.is-viewed {
   gap: 6px;
   max-width: 100%;
   padding: 4px 8px;
-  border: 1px solid rgba(183, 134, 63, 0.16);
+  border: 1px solid rgba(201, 164, 92, 0.22);
   border-radius: 999px;
-  background: rgba(245, 247, 250, 0.92);
-  color: var(--vk-blue-dark);
+  background: linear-gradient(135deg, rgba(247, 239, 226, 0.92), rgba(255, 253, 248, 0.88));
+  color: var(--brown);
   font-size: 11px;
   font-weight: 900;
   line-height: 1;
-  box-shadow: 0 6px 16px rgba(21, 32, 43, 0.05);
+  box-shadow: 0 6px 16px rgba(107, 74, 45, 0.06);
 }
 
 .status-mini-streak {
-  color: var(--orange-dark);
+  color: var(--brown);
   white-space: nowrap;
 }
 
@@ -836,6 +891,9 @@ tbody tr.is-viewed {
 }
 
 .participant-path-zone-header strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text);
   font-size: 14px;
   font-weight: 950;
@@ -960,12 +1018,14 @@ tbody tr.is-viewed {
 }
 
 .participant-path-empty::before {
-  content: "✨";
+  content: "";
   display: block;
-  margin-bottom: 2px;
-  color: rgba(183, 134, 63, 0.42);
-  font-size: 15px;
-  line-height: 1;
+  width: 6px;
+  height: 6px;
+  margin: 0 auto 6px;
+  border-radius: 999px;
+  background: var(--gold);
+  box-shadow: 0 0 0 5px rgba(201, 164, 92, 0.12);
 }
 
 .participant-path-peak {
@@ -1127,7 +1187,238 @@ tbody tr.is-viewed {
   min-height: 38px;
   flex: 0 0 auto;
   padding: 0 12px;
+  color: var(--gold);
+}
+
+.goal-journey-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 0.34fr);
+  gap: 14px;
+  margin: 16px 20px;
+  align-items: stretch;
+}
+
+.goal-journey-card,
+.status-card-compact {
+  border: 1px solid rgba(201, 164, 92, 0.2);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(201, 164, 92, 0.13), transparent 42%),
+    linear-gradient(135deg, rgba(255, 253, 248, 0.98), rgba(247, 239, 226, 0.88));
+  box-shadow: 0 18px 44px rgba(107, 74, 45, 0.08);
+}
+
+.goal-journey-card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.goal-journey-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.goal-journey-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.12;
+  font-weight: 950;
+}
+
+.goal-journey-heading p {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: var(--muted);
   font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.goal-journey-map {
+  position: relative;
+  min-height: 278px;
+  overflow: hidden;
+  border: 1px solid rgba(201, 164, 92, 0.12);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 86%, rgba(201, 164, 92, 0.12), transparent 34%),
+    radial-gradient(circle at 88% 14%, rgba(232, 216, 184, 0.34), transparent 42%),
+    rgba(255, 253, 248, 0.66);
+}
+
+.goal-journey-line {
+  position: absolute;
+  inset: 18px 18px 34px;
+  width: calc(100% - 36px);
+  height: calc(100% - 52px);
+  overflow: visible;
+}
+
+.goal-journey-line-base {
+  stroke: rgba(107, 74, 45, 0.18);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.goal-journey-line-progress {
+  stroke: var(--gold);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px rgba(201, 164, 92, 0.34));
+  transition: stroke-dashoffset 240ms ease;
+}
+
+.goal-journey-point,
+.goal-journey-trophy,
+.goal-journey-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.goal-journey-point {
+  z-index: 2;
+  display: block;
+  border: 1px solid rgba(201, 164, 92, 0.2);
+  border-radius: 999px;
+  background: rgba(247, 239, 226, 0.92);
+  box-shadow:
+    0 8px 18px rgba(107, 74, 45, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.goal-journey-point-main {
+  width: 20px;
+  height: 20px;
+}
+
+.goal-journey-point-sub {
+  width: 11px;
+  height: 11px;
+  opacity: 0.82;
+}
+
+.goal-journey-point.is-complete {
+  border-color: rgba(201, 164, 92, 0.62);
+  background: linear-gradient(135deg, #f3d77f, var(--gold));
+  box-shadow:
+    0 0 0 5px rgba(201, 164, 92, 0.12),
+    0 10px 24px rgba(107, 74, 45, 0.16);
+}
+
+.goal-journey-marker {
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(210px, 48%);
+  padding: 6px 10px 6px 6px;
+  border: 1px solid rgba(201, 164, 92, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.96);
+  color: var(--brown);
+  box-shadow: 0 16px 34px rgba(107, 74, 45, 0.14);
+}
+
+.goal-journey-marker strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-journey-avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--champagne), #fffdf8);
+  color: var(--brown);
+  font-size: 13px;
+  font-weight: 950;
+  box-shadow: inset 0 0 0 1px rgba(201, 164, 92, 0.24);
+}
+
+.goal-journey-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.goal-journey-trophy {
+  z-index: 3;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(201, 164, 92, 0.18);
+  border-radius: 16px;
+  background: rgba(247, 239, 226, 0.8);
+  color: rgba(107, 74, 45, 0.42);
+  box-shadow: 0 12px 28px rgba(107, 74, 45, 0.08);
+}
+
+.goal-journey-trophy.is-complete {
+  border-color: rgba(201, 164, 92, 0.52);
+  background: #fffdf8;
+  color: var(--gold);
+  box-shadow:
+    0 0 0 7px rgba(201, 164, 92, 0.11),
+    0 18px 42px rgba(107, 74, 45, 0.16);
+}
+
+.goal-journey-empty {
+  position: absolute;
+  left: 50%;
+  top: 54%;
+  transform: translate(-50%, -50%);
+  width: min(320px, calc(100% - 44px));
+  margin: 0;
+  border: 1px dashed rgba(201, 164, 92, 0.28);
+  border-radius: 18px;
+  padding: 15px 16px;
+  background: rgba(255, 253, 248, 0.82);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.goal-journey-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.goal-journey-stat {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(201, 164, 92, 0.16);
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: rgba(255, 253, 248, 0.72);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.goal-journey-stat strong {
+  margin-left: auto;
+  color: var(--brown);
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
 }
 
 .status-card {
@@ -1139,6 +1430,61 @@ tbody tr.is-viewed {
     radial-gradient(circle at top right, rgba(201, 154, 69, 0.15), transparent 34%),
     linear-gradient(135deg, #fffdf8, #f7f0e6);
   box-shadow: 0 16px 34px rgba(92, 63, 31, 0.08);
+}
+
+.status-card-compact {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border-radius: 24px;
+}
+
+.status-card-compact .status-card-top,
+.status-card-compact .status-card-main,
+.status-card-compact .status-metrics {
+  align-items: flex-start;
+}
+
+.status-card-compact .status-card-top {
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.status-card-compact .status-card-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.status-card-compact .status-emblem {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
+
+.status-card-compact .premium-icon-large {
+  width: 31px;
+  height: 31px;
+}
+
+.status-card-compact .status-title {
+  font-size: 18px;
+}
+
+.status-card-compact .status-description {
+  font-size: 12px;
+}
+
+.status-card-compact .status-metrics {
+  display: grid;
+  margin-top: 0;
+}
+
+.status-card-compact .status-metric {
+  width: 100%;
 }
 
 .status-card-top,
@@ -1164,14 +1510,17 @@ tbody tr.is-viewed {
 .status-pill {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 28px;
   padding: 6px 11px;
+  border: 1px solid rgba(201, 164, 92, 0.24);
   border-radius: 999px;
-  background: rgba(201, 154, 69, 0.13);
-  color: var(--orange-dark);
+  background: linear-gradient(135deg, rgba(247, 239, 226, 0.94), rgba(255, 253, 248, 0.78));
+  color: var(--brown);
   font-size: 13px;
   font-weight: 950;
   white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(107, 74, 45, 0.07);
 }
 
 .status-emblem {
@@ -1182,7 +1531,6 @@ tbody tr.is-viewed {
   place-items: center;
   border-radius: 16px;
   background: #fffaf1;
-  font-size: 30px;
   box-shadow:
     0 12px 24px rgba(122, 84, 40, 0.12),
     inset 0 0 0 1px rgba(183, 134, 63, 0.14);
@@ -1211,13 +1559,16 @@ tbody tr.is-viewed {
 .status-metric {
   display: inline-flex;
   align-items: center;
+  gap: 7px;
   min-height: 34px;
   padding: 8px 11px;
-  border-radius: 12px;
-  background: rgba(250, 244, 235, 0.88);
-  color: var(--vk-blue-dark);
+  border: 1px solid rgba(201, 164, 92, 0.18);
+  border-radius: 999px;
+  background: rgba(247, 239, 226, 0.78);
+  color: var(--brown);
   font-size: 13px;
   font-weight: 900;
+  box-shadow: 0 8px 18px rgba(107, 74, 45, 0.05);
 }
 
 .status-card[data-activity="slowing"] {
@@ -1234,6 +1585,9 @@ tbody tr.is-viewed {
   z-index: 30;
   left: 50%;
   bottom: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   max-width: min(420px, calc(100vw - 32px));
   transform: translate(-50%, 18px);
   opacity: 0;
@@ -1282,12 +1636,14 @@ tbody tr.is-viewed {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(201, 154, 69, 0.12);
-  color: var(--orange-dark);
+  border: 1px solid rgba(201, 164, 92, 0.22);
+  background: linear-gradient(135deg, rgba(247, 239, 226, 0.92), rgba(255, 253, 248, 0.82));
+  color: var(--brown);
   border-radius: 999px;
   padding: 8px 12px;
   font-weight: 900;
   font-size: 13px;
+  box-shadow: 0 8px 18px rgba(107, 74, 45, 0.06);
 }
 
 .goal-fields {
@@ -1416,12 +1772,16 @@ textarea:focus {
 
 .archive-badge {
   display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(201, 164, 92, 0.2);
   border-radius: 999px;
   padding: 8px 12px;
-  background: var(--soft);
-  color: var(--vk-blue-dark);
+  background: linear-gradient(135deg, rgba(247, 239, 226, 0.92), rgba(255, 253, 248, 0.82));
+  color: var(--brown);
   font-size: 13px;
   font-weight: 900;
+  box-shadow: 0 8px 18px rgba(107, 74, 45, 0.06);
 }
 
 .archive-list {
@@ -1456,9 +1816,7 @@ textarea:focus {
   place-items: center;
   border-radius: 14px;
   background: #fff;
-  color: var(--orange);
-  font-size: 22px;
-  line-height: 1;
+  color: var(--gold);
   box-shadow:
     0 12px 24px rgba(201, 154, 69, 0.13),
     inset 0 0 0 1px rgba(201, 154, 69, 0.14);
@@ -1511,6 +1869,10 @@ textarea:focus {
 }
 
 .archive-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(201, 164, 92, 0.2);
   border-radius: 999px;
   padding: 7px 10px;
   font-size: 12px;
@@ -1519,8 +1881,8 @@ textarea:focus {
 }
 
 .archive-completed {
-  background: #e8f7ef;
-  color: #247a55;
+  background: var(--champagne);
+  color: var(--brown);
 }
 
 .archive-expired {
@@ -2003,14 +2365,20 @@ body.is-dragging-card * {
 }
 
 .goal-completion-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   margin: 0 0 10px;
-  color: var(--orange-dark);
+  color: var(--brown);
   font-size: 13px;
   font-weight: 950;
   letter-spacing: 0.04em;
 }
 
 .goal-completion-card h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
   color: var(--text);
   font-size: 30px;
@@ -2026,11 +2394,13 @@ body.is-dragging-card * {
 }
 
 .goal-completion-grid span {
+  align-items: flex-start;
   min-width: 0;
+  border: 1px solid rgba(201, 164, 92, 0.16);
   border-radius: 14px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.78);
-  color: var(--vk-blue-dark);
+  background: rgba(247, 239, 226, 0.62);
+  color: var(--brown);
   font-size: 14px;
   font-weight: 900;
   box-shadow: inset 0 0 0 1px rgba(183, 134, 63, 0.1);
@@ -2883,6 +3253,35 @@ body.is-dragging-card * {
   .status-card {
     margin: 14px 12px;
     padding: 15px;
+  }
+
+  .goal-journey-shell {
+    grid-template-columns: 1fr;
+    margin: 14px 12px;
+  }
+
+  .goal-journey-card {
+    padding: 14px;
+  }
+
+  .goal-journey-heading h3 {
+    font-size: 22px;
+  }
+
+  .goal-journey-map {
+    min-height: 250px;
+  }
+
+  .goal-journey-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-journey-marker {
+    max-width: 58%;
+  }
+
+  .status-card-compact {
+    margin: 0;
   }
 
   .status-card-top,

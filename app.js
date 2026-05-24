@@ -15,7 +15,7 @@ const STATUS_TIERS = [
   {
     key: "newbie",
     title: "НОВИЧОК",
-    icon: "🌱",
+    iconName: "sprout",
     description: "человек только начал путь.",
     minStreak: 0,
     maxStreak: 2,
@@ -23,7 +23,7 @@ const STATUS_TIERS = [
   {
     key: "walker",
     title: "ИДУЩИЙ",
-    icon: "🚶",
+    iconName: "path",
     description: "человек начинает двигаться стабильно.",
     minStreak: 3,
     maxStreak: 6,
@@ -31,7 +31,7 @@ const STATUS_TIERS = [
   {
     key: "stable",
     title: "СТАБИЛЬНЫЙ",
-    icon: "🏅",
+    iconName: "medal",
     description: "человек держит дисциплину.",
     minStreak: 7,
     maxStreak: 14,
@@ -39,7 +39,7 @@ const STATUS_TIERS = [
   {
     key: "champion",
     title: "ЧЕМПИОН",
-    icon: "🏆",
+    iconName: "trophy",
     description: "человек показывает высокий уровень стабильности.",
     minStreak: 15,
     maxStreak: 29,
@@ -47,7 +47,7 @@ const STATUS_TIERS = [
   {
     key: "legend",
     title: "ЛЕГЕНДА",
-    icon: "👑",
+    iconName: "crown",
     description: "человек стал примером дисциплины.",
     minStreak: 30,
     maxStreak: Infinity,
@@ -61,6 +61,71 @@ const PATH_ZONE_TITLES = {
   legend: "Пик дисциплины",
 };
 const PATH_ZONE_LIMIT = 3;
+const PREMIUM_EMOJI_PATTERN = /[🌱🔥🏅🏆👑🚶✨✦⚡❄️⚠️🥇🥈🥉🎖️🎯📅]/gu;
+const SVG_NS = "http://www.w3.org/2000/svg";
+const PREMIUM_ICON_PATHS = {
+  sprout: [
+    { tag: "path", d: "M12 20V10" },
+    { tag: "path", d: "M12 10C8 6 5 6 3 9c3 1 6 2 9 1Z" },
+    { tag: "path", d: "M12 10c4-5 8-5 10-1-4 0-7 1-10 1Z" },
+  ],
+  flame: [
+    { tag: "path", d: "M12 21c4 0 7-3 7-7 0-3-2-6-5-9-.3 2-1.1 3.5-2.4 4.7C10.4 8 9.8 6.2 10 4 7 6.8 5 10 5 14c0 4 3 7 7 7Z" },
+    { tag: "path", d: "M12 17c1.7 0 3-1.3 3-3 0-1.2-.7-2.3-2-3.5-.2 1-.7 1.8-1.5 2.4-.7-.8-1-1.7-.9-2.9C9.5 11.2 9 12.5 9 14c0 1.7 1.3 3 3 3Z" },
+  ],
+  medal: [
+    { tag: "path", d: "M8 3h8l-2.5 5h-3L8 3Z" },
+    { tag: "circle", cx: "12", cy: "14", r: "5" },
+    { tag: "path", d: "m10.5 14 1 1 2-2.2" },
+  ],
+  trophy: [
+    { tag: "path", d: "M8 4h8v4a4 4 0 0 1-8 0V4Z" },
+    { tag: "path", d: "M8 6H5a3 3 0 0 0 3 4" },
+    { tag: "path", d: "M16 6h3a3 3 0 0 1-3 4" },
+    { tag: "path", d: "M12 12v4" },
+    { tag: "path", d: "M8.5 20h7" },
+    { tag: "path", d: "M10 16h4l1 4H9l1-4Z" },
+  ],
+  crown: [
+    { tag: "path", d: "m4 9 4 3 4-7 4 7 4-3-1.5 10h-13L4 9Z" },
+    { tag: "path", d: "M6 19h12" },
+  ],
+  path: [
+    { tag: "path", d: "M5 18c3-6 10 0 14-8" },
+    { tag: "circle", cx: "5", cy: "18", r: "1.7" },
+    { tag: "circle", cx: "19", cy: "10", r: "1.7" },
+    { tag: "path", d: "M10 14h.01" },
+    { tag: "path", d: "M14 13h.01" },
+  ],
+  sparkle: [
+    { tag: "path", d: "M12 3v5" },
+    { tag: "path", d: "M12 16v5" },
+    { tag: "path", d: "M3 12h5" },
+    { tag: "path", d: "M16 12h5" },
+    { tag: "path", d: "m7.8 7.8-2-2" },
+    { tag: "path", d: "m18.2 18.2-2-2" },
+    { tag: "path", d: "m16.2 7.8 2-2" },
+    { tag: "path", d: "m5.8 18.2 2-2" },
+  ],
+  dot: [{ tag: "circle", cx: "12", cy: "12", r: "4" }],
+  bolt: [{ tag: "path", d: "M13 2 5 13h6l-1 9 8-12h-6l1-8Z" }],
+  calendar: [
+    { tag: "path", d: "M7 3v4" },
+    { tag: "path", d: "M17 3v4" },
+    { tag: "path", d: "M4 8h16" },
+    { tag: "rect", x: "4", y: "5", width: "16", height: "15", rx: "3" },
+  ],
+  warning: [
+    { tag: "path", d: "M12 4 3.5 19h17L12 4Z" },
+    { tag: "path", d: "M12 9v4" },
+    { tag: "path", d: "M12 17h.01" },
+  ],
+  snow: [
+    { tag: "path", d: "M12 3v18" },
+    { tag: "path", d: "M5 7l14 10" },
+    { tag: "path", d: "M19 7 5 17" },
+  ],
+};
 
 const defaultParticipant = {
   id: crypto.randomUUID(),
@@ -199,6 +264,7 @@ const profileTemplate = document.querySelector("#profileTemplate");
 const taskTemplate = document.querySelector("#taskTemplate");
 const subtaskTemplate = document.querySelector("#subtaskTemplate");
 const goalCompletionModal = document.querySelector("#goalCompletionModal");
+const goalCompletionHeading = document.querySelector("#goalCompletionHeading");
 const goalCompletionTitle = document.querySelector("#goalCompletionTitle");
 const goalCompletionStreak = document.querySelector("#goalCompletionStreak");
 const goalCompletionSteps = document.querySelector("#goalCompletionSteps");
@@ -2452,7 +2518,7 @@ function applyEditableText() {
   document.querySelectorAll("[data-edit-key]").forEach((element) => {
     const value = uiText[element.dataset.editKey];
     if (typeof value === "string") {
-      element.textContent = value;
+      element.textContent = stripPremiumEmoji(value);
     }
   });
 
@@ -2462,6 +2528,58 @@ function applyEditableText() {
       element.placeholder = value;
     }
   });
+}
+
+function stripPremiumEmoji(value) {
+  return String(value || "").replace(PREMIUM_EMOJI_PATTERN, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function createPremiumIcon(name, options = {}) {
+  const wrapper = document.createElement("span");
+  const svg = document.createElementNS(SVG_NS, "svg");
+  const iconName = PREMIUM_ICON_PATHS[name] ? name : "dot";
+
+  wrapper.className = `premium-icon premium-icon-${iconName}`;
+  if (options.size) wrapper.classList.add(`premium-icon-${options.size}`);
+  wrapper.setAttribute("aria-hidden", "true");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.8");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  PREMIUM_ICON_PATHS[iconName].forEach((shape) => {
+    const node = document.createElementNS(SVG_NS, shape.tag);
+    Object.entries(shape).forEach(([key, value]) => {
+      if (key !== "tag") node.setAttribute(key, value);
+    });
+    svg.append(node);
+  });
+
+  wrapper.append(svg);
+  return wrapper;
+}
+
+function setPremiumIconText(element, iconName, text, options = {}) {
+  if (!element) return;
+  const iconNames = Array.isArray(iconName) ? iconName : [iconName];
+  element.replaceChildren();
+  iconNames.forEach((name) => {
+    element.append(createPremiumIcon(name, options));
+  });
+  if (text) {
+    const label = document.createElement("span");
+    label.textContent = stripPremiumEmoji(text);
+    element.append(label);
+  }
+}
+
+function createIconText(iconName, text, className = "") {
+  const wrapper = document.createElement("span");
+  wrapper.className = className || "premium-icon-text";
+  setPremiumIconText(wrapper, iconName, text);
+  return wrapper;
 }
 
 async function getImageValue(urlInput, fileInput, fallback) {
@@ -2726,7 +2844,7 @@ function archiveFinishedGoal(participant) {
     completedAt: archivedAt,
     streakAtCompletion: completed ? statusInfo.streak : 0,
     statusTitle: completed ? statusInfo.title : "",
-    statusIcon: completed ? statusInfo.icon : "",
+    statusIcon: completed ? statusInfo.iconName : "",
     archivedAt,
   };
   participant.archivedGoals = Array.isArray(participant.archivedGoals) ? participant.archivedGoals : [];
@@ -2830,7 +2948,7 @@ function toggleTask(participantId, taskId, done) {
   saveState();
   render();
   if (promotedStatus) {
-    showStatusToast(`${promotedStatus.icon} Новый статус: ${promotedStatus.title}`);
+    showStatusToast(`Новый статус: ${promotedStatus.title}`, promotedStatus.iconName);
   }
 }
 
@@ -2914,7 +3032,7 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
   saveState();
   render();
   if (promotedStatus) {
-    showStatusToast(`${promotedStatus.icon} Новый статус: ${promotedStatus.title}`);
+    showStatusToast(`Новый статус: ${promotedStatus.title}`, promotedStatus.iconName);
   }
 }
 
@@ -3531,16 +3649,21 @@ function getParticipantDisplayStreak(participant) {
 
 function getActivityState(daysWithoutActivity) {
   if (daysWithoutActivity >= 5 || daysWithoutActivity === Infinity) {
-    return { key: "inactive", icon: "❄️", label: "НЕАКТИВЕН" };
+    return { key: "inactive", iconName: "snow", label: "НЕАКТИВЕН" };
   }
   if (daysWithoutActivity >= 3) {
-    return { key: "slowing", icon: "⚠️", label: "ТЕРЯЕТ ТЕМП" };
+    return { key: "slowing", iconName: "warning", label: "ТЕРЯЕТ ТЕМП" };
   }
-  return { key: "active", icon: "🔥", label: "В СТРОЮ" };
+  return { key: "active", iconName: "flame", label: "В СТРОЮ" };
 }
 
 function getStatusTier(streak) {
   return STATUS_TIERS.find((tier) => streak >= tier.minStreak && streak <= tier.maxStreak) || STATUS_TIERS[0];
+}
+
+function getStatusIconNameByTitle(title) {
+  const normalizedTitle = String(title || "").toUpperCase();
+  return STATUS_TIERS.find((tier) => tier.title === normalizedTitle)?.iconName || "sprout";
 }
 
 function getStatusRank(statusKey) {
@@ -3649,9 +3772,30 @@ function render() {
   renderAnnouncementModal();
   renderDeadlineWarningModal();
   applyEditableText();
+  decoratePremiumStaticText();
   if (tourModal && !tourModal.hidden) {
     renderTourStep();
   }
+}
+
+function decoratePremiumStaticText() {
+  document.querySelectorAll("[data-edit-key='goalCardBadge']").forEach((element) => {
+    setPremiumIconText(element, "trophy", state.uiText?.goalCardBadge || element.textContent || "Основная цель");
+  });
+  document.querySelectorAll("[data-edit-key='nextGoalTitle']").forEach((element) => {
+    setPremiumIconText(element, "flame", state.uiText?.nextGoalTitle || element.textContent || "Ты завершил этот путь.");
+  });
+  document.querySelectorAll("[data-edit-key='archiveBadge']").forEach((element) => {
+    setPremiumIconText(element, "medal", state.uiText?.archiveBadge || element.textContent || "Архив целей");
+  });
+  document.querySelectorAll(".champion-badge[data-edit-key]").forEach((element) => {
+    const iconNames = element.dataset.editKey === "secondPlaceBadge"
+      ? ["medal", "medal"]
+      : element.dataset.editKey === "thirdPlaceBadge"
+        ? ["medal"]
+        : ["trophy"];
+    setPremiumIconText(element, iconNames, state.uiText?.[element.dataset.editKey] || element.textContent || "Чемпион");
+  });
 }
 
 function renderWelcomeGate() {
@@ -4097,20 +4241,20 @@ function getPlaceBadge(place) {
   if (place === 1) {
     return {
       key: "championBadge",
-      icon: "🏆",
+      icons: ["trophy"],
       text: state.uiText?.championBadge || "Чемпион дня",
     };
   }
   if (place === 2) {
     return {
       key: "secondPlaceBadge",
-      icon: "🥈🥈",
+      icons: ["medal", "medal"],
       text: state.uiText?.secondPlaceBadge || "Второе место",
     };
   }
   return {
     key: "thirdPlaceBadge",
-    icon: "🥉",
+    icons: ["medal"],
     text: state.uiText?.thirdPlaceBadge || "Третье место",
   };
 }
@@ -4125,7 +4269,7 @@ function renderChartRow(participant, progress, place) {
   const placeBadge = completedNotice
     ? {
         key: "completedGoalChampionBadge",
-        icon: "🏆",
+        icons: ["trophy"],
         text: state.uiText?.completedGoalChampionBadge || "Чемпион",
       }
     : getPlaceBadge(place);
@@ -4141,13 +4285,13 @@ function renderChartRow(participant, progress, place) {
     avatar.alt = participant.picture ? `Фото ${participant.name}` : "";
   }
   if (placeIcon) {
-    placeIcon.textContent = placeBadge.icon;
+    placeIcon.replaceChildren(...placeBadge.icons.map((iconName) => createPremiumIcon(iconName, { size: "small" })));
     placeIcon.setAttribute("aria-label", placeBadge.text);
   }
   node.querySelector(".chart-name").textContent = participant.name;
   node.querySelector(".chart-person").append(createStatusMiniBadge(participant));
   championBadge.dataset.editKey = placeBadge.key;
-  championBadge.textContent = placeBadge.text;
+  setPremiumIconText(championBadge, placeBadge.icons, placeBadge.text);
   championBadge.hidden = false;
   if (completedNotice) {
     const completedText = document.createElement("span");
@@ -4242,7 +4386,8 @@ function renderParticipantPath() {
     zone.style.setProperty("--zone-index", String(zoneIndex));
     zone.style.setProperty("--zone-offset", `${zoneIndex * -12}px`);
     header.className = "participant-path-zone-header";
-    title.textContent = `${tier.icon} ${PATH_ZONE_TITLES[tier.key] || tier.title}`;
+    title.className = "participant-path-zone-title";
+    setPremiumIconText(title, tier.iconName, PATH_ZONE_TITLES[tier.key] || tier.title, { size: "medium" });
     range.textContent = formatPathZoneRange(tier);
     members.className = "participant-path-members";
 
@@ -4272,7 +4417,7 @@ function renderParticipantPath() {
   const peak = document.createElement("div");
   peak.className = "participant-path-peak";
   peak.setAttribute("aria-label", "Вершина пути");
-  peak.textContent = "✦";
+  peak.append(createPremiumIcon("sparkle", { size: "small" }));
   road.append(peak);
   participantPath.append(road);
 }
@@ -4320,8 +4465,8 @@ function createPathParticipant(participant) {
 
   info.className = "participant-path-info";
   name.textContent = participant.name;
-  statusText.textContent = `${status.icon} ${formatStatusTitle(status.title)}`;
-  streak.textContent = `🔥 ${formatDayCount(status.streak)}`;
+  setPremiumIconText(statusText, status.iconName, formatStatusTitle(status.title));
+  setPremiumIconText(streak, "flame", formatDayCount(status.streak));
   info.append(name, statusText, streak);
   button.append(avatar, info);
   return button;
@@ -4351,6 +4496,192 @@ function getParticipantPlural(count) {
   return "участников";
 }
 
+function GoalJourney(props) {
+  const {
+    participantName,
+    participantAvatar,
+    currentGoal,
+    mainSteps,
+    progressPercent,
+  } = props;
+  const card = document.createElement("section");
+  const header = document.createElement("div");
+  const heading = document.createElement("div");
+  const title = document.createElement("h3");
+  const goal = document.createElement("p");
+  const map = document.createElement("div");
+  const svg = createJourneyLineSvg(progressPercent);
+  const points = getGoalJourneyPoints(mainSteps);
+  const totalPoints = points.length;
+  const completedPoints = points.filter((point) => point.done).length;
+  const remainingPoints = Math.max(0, totalPoints - completedPoints);
+  const activeIndex = points.findIndex((point) => !point.done);
+  const participantPoint = totalPoints === 0
+    ? null
+    : activeIndex === -1
+      ? getJourneyPosition(1)
+      : getJourneyPosition(getJourneyRatio(activeIndex, totalPoints));
+  const trophy = document.createElement("div");
+  const footer = document.createElement("div");
+
+  card.className = "goal-journey-card";
+  header.className = "goal-journey-header";
+  heading.className = "goal-journey-heading";
+  title.textContent = "Путь к цели";
+  goal.textContent = currentGoal?.trim() || "Цель пока не указана";
+  map.className = "goal-journey-map";
+  footer.className = "goal-journey-stats";
+
+  heading.append(title, goal);
+  header.append(heading);
+  map.append(svg);
+
+  if (totalPoints === 0) {
+    const empty = document.createElement("p");
+    empty.className = "goal-journey-empty";
+    empty.textContent = "Добавьте первый шаг — и путь начнётся.";
+    map.append(empty);
+  } else {
+    points.forEach((point, index) => {
+      map.append(createJourneyPoint(point, getJourneyRatio(index, totalPoints)));
+    });
+    if (participantPoint) {
+      map.append(createJourneyMarker(participantName, participantAvatar, participantPoint));
+    }
+  }
+
+  trophy.className = "goal-journey-trophy";
+  trophy.classList.toggle("is-complete", totalPoints > 0 && remainingPoints === 0);
+  trophy.style.left = "91%";
+  trophy.style.top = "12%";
+  trophy.append(createPremiumIcon("trophy", { size: "medium" }));
+  map.append(trophy);
+
+  footer.append(
+    createJourneyStat("medal", "Выполнено", `${completedPoints} из ${totalPoints}`),
+    createJourneyStat("path", "До цели", `${remainingPoints} ${getJourneyPointPlural(remainingPoints)}`),
+    createJourneyStat("flame", "Прогресс", `${progressPercent || 0}%`),
+  );
+
+  card.append(header, map, footer);
+  return card;
+}
+
+function renderGoalJourney(container, props) {
+  if (!container) return;
+  container.replaceChildren(GoalJourney(props));
+}
+
+function getGoalJourneyPoints(mainSteps = []) {
+  const points = [];
+  mainSteps.forEach((task, taskIndex) => {
+    points.push({
+      id: task.id || `task-${taskIndex}`,
+      type: "main",
+      title: task.title || "Шаг",
+      done: Boolean(task.done),
+    });
+    (task.subtasks || []).forEach((subtask, subtaskIndex) => {
+      points.push({
+        id: subtask.id || `${task.id || taskIndex}-subtask-${subtaskIndex}`,
+        type: "sub",
+        title: subtask.title || "Доп. шаг",
+        done: Boolean(subtask.done),
+      });
+    });
+  });
+  return points;
+}
+
+function getJourneyRatio(index, total) {
+  if (total <= 1) return 0.5;
+  return index / (total - 1);
+}
+
+function getJourneyPosition(ratio) {
+  const clamped = Math.max(0, Math.min(1, Number(ratio || 0)));
+  const x = 8 + clamped * 78;
+  const y = 80 - clamped * 54 + Math.sin(clamped * Math.PI * 1.15) * 6;
+  return { x, y };
+}
+
+function createJourneyPoint(point, ratio) {
+  const position = getJourneyPosition(ratio);
+  const node = document.createElement("span");
+  node.className = `goal-journey-point goal-journey-point-${point.type}`;
+  node.classList.toggle("is-complete", point.done);
+  node.style.left = `${position.x}%`;
+  node.style.top = `${position.y}%`;
+  node.title = stripPremiumEmoji(point.title);
+  node.setAttribute("aria-label", `${point.type === "main" ? "Шаг" : "Подшаг"}: ${stripPremiumEmoji(point.title)}`);
+  return node;
+}
+
+function createJourneyMarker(name, avatarUrl, position) {
+  const marker = document.createElement("div");
+  const avatar = document.createElement("span");
+  const label = document.createElement("strong");
+  marker.className = "goal-journey-marker";
+  marker.style.left = `${position.x}%`;
+  marker.style.top = `${position.y}%`;
+  avatar.className = "goal-journey-avatar";
+  if (avatarUrl) {
+    const image = document.createElement("img");
+    image.src = avatarUrl;
+    image.alt = `Фото ${name}`;
+    avatar.append(image);
+  } else {
+    avatar.textContent = getParticipantInitial(name);
+  }
+  label.textContent = name;
+  marker.append(avatar, label);
+  return marker;
+}
+
+function createJourneyLineSvg(progressPercent) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  const basePath = document.createElementNS(SVG_NS, "path");
+  const progressPath = document.createElementNS(SVG_NS, "path");
+  const d = "M8 80 C24 74 31 66 43 62 C57 57 62 42 73 35 C80 30 85 27 91 18";
+
+  svg.classList.add("goal-journey-line");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "none");
+
+  [basePath, progressPath].forEach((path) => {
+    path.setAttribute("d", d);
+    path.setAttribute("fill", "none");
+    path.setAttribute("pathLength", "100");
+  });
+  basePath.classList.add("goal-journey-line-base");
+  progressPath.classList.add("goal-journey-line-progress");
+  progressPath.style.strokeDasharray = "100";
+  progressPath.style.strokeDashoffset = String(100 - Math.max(0, Math.min(100, Number(progressPercent || 0))));
+  svg.append(basePath, progressPath);
+  return svg;
+}
+
+function createJourneyStat(iconName, label, value) {
+  const item = document.createElement("span");
+  const text = document.createElement("span");
+  const strong = document.createElement("strong");
+  item.className = "goal-journey-stat";
+  text.textContent = label;
+  strong.textContent = value;
+  item.append(createPremiumIcon(iconName, { size: "small" }), text, strong);
+  return item;
+}
+
+function getJourneyPointPlural(count) {
+  const value = Math.abs(Number(count || 0));
+  const lastTwo = value % 100;
+  const last = value % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return "точек";
+  if (last === 1) return "точка";
+  if (last >= 2 && last <= 4) return "точки";
+  return "точек";
+}
+
 function renderProfile() {
   profileView.replaceChildren();
 
@@ -4374,6 +4705,7 @@ function renderProfile() {
   const taskInput = node.querySelector(".task-input");
   const taskList = node.querySelector(".task-list");
   const archiveList = node.querySelector(".archive-list");
+  const goalJourneyContainer = node.querySelector(".goal-journey");
   const nextGoalPanel = node.querySelector(".next-goal-panel");
   const newGoalButton = node.querySelector(".new-goal-button");
   const profileAvatar = node.querySelector(".profile-avatar");
@@ -4386,6 +4718,8 @@ function renderProfile() {
   node.querySelector(".person-percent").textContent = `${progress.percent}%`;
   node.querySelector(".person-count").textContent = `${progress.done} из ${progress.total} выполнено`;
   node.querySelector(".progress-bar").style.width = `${progress.percent}%`;
+  setPremiumIconText(node.querySelector(".goal-card-badge"), "trophy", state.uiText?.goalCardBadge || "Основная цель");
+  setPremiumIconText(node.querySelector("[data-edit-key='nextGoalTitle']"), "flame", state.uiText?.nextGoalTitle || "Ты завершил этот путь.");
 
   deleteAccountButton.hidden = !state.isAdmin;
   deleteAccountButton.addEventListener("click", () => deleteAccount(participant.id));
@@ -4394,6 +4728,18 @@ function renderProfile() {
     profileAvatar.src = participant.picture || "";
     profileAvatar.hidden = !participant.picture;
   }
+  renderGoalJourney(goalJourneyContainer, {
+    participantName: participant.name,
+    participantAvatar: participant.picture || "",
+    currentGoal: participant.goal || "",
+    mainSteps: participant.tasks || [],
+    completedSteps: progress.done,
+    progressPercent: progress.percent,
+    currentLevel: statusInfo,
+    streakDays: statusInfo.streak,
+    recordDays: statusInfo.bestStreak,
+    activityStatus: statusInfo.activity,
+  });
   renderStatusCard(node, statusInfo);
 
   goalInput.value = participant.goal;
@@ -4535,11 +4881,12 @@ function renderGoalCompletionModal() {
     return;
   }
   goalCompletionModal.hidden = false;
-  goalCompletionTitle.textContent = `🏆 ${pendingGoalCompletion.title || "Цель без названия"}`;
-  goalCompletionStreak.textContent = `🔥 Серия дней: ${pendingGoalCompletion.streakAtCompletion || 0}`;
-  goalCompletionSteps.textContent = `⚡ Выполнено шагов: ${pendingGoalCompletion.completedSteps || 0}`;
-  goalCompletionStatus.textContent = `🏅 Статус: ${pendingGoalCompletion.statusTitle || "НОВИЧОК"}`;
-  goalCompletionDate.textContent = `📅 Дата завершения: ${formatCompletedDate(pendingGoalCompletion.completedAt || Date.now())}`;
+  setPremiumIconText(goalCompletionHeading, "crown", "ЦЕЛЬ ДОСТИГНУТА", { size: "small" });
+  setPremiumIconText(goalCompletionTitle, "trophy", pendingGoalCompletion.title || "Цель без названия");
+  setPremiumIconText(goalCompletionStreak, "flame", `Серия дней: ${pendingGoalCompletion.streakAtCompletion || 0}`);
+  setPremiumIconText(goalCompletionSteps, "bolt", `Выполнено шагов: ${pendingGoalCompletion.completedSteps || 0}`);
+  setPremiumIconText(goalCompletionStatus, getStatusIconNameByTitle(pendingGoalCompletion.statusTitle), `Статус: ${pendingGoalCompletion.statusTitle || "НОВИЧОК"}`);
+  setPremiumIconText(goalCompletionDate, "calendar", `Дата завершения: ${formatCompletedDate(pendingGoalCompletion.completedAt || Date.now())}`);
   requestAnimationFrame(() => {
     goalCompletionNewGoalButton?.focus();
   });
@@ -4553,7 +4900,7 @@ function maybeShowTempoWarning(participant, editable) {
   if (participant.tempoWarningShownFor === today) return;
   participant.tempoWarningShownFor = today;
   saveState();
-  showStatusToast("⚠️ Ты начинаешь терять темп");
+  showStatusToast("Ты начинаешь терять темп", "warning");
 }
 
 function renderStatusCard(node, status) {
@@ -4561,24 +4908,28 @@ function renderStatusCard(node, status) {
   if (!card) return;
   card.dataset.status = status.key;
   card.dataset.activity = status.activity.key;
-  card.querySelector(".status-pill").textContent = `${status.icon} ${status.title}`;
-  card.querySelector(".status-emblem").textContent = status.icon;
+  setPremiumIconText(card.querySelector(".status-pill"), status.iconName, status.title);
+  const emblem = card.querySelector(".status-emblem");
+  emblem.replaceChildren(createPremiumIcon(status.iconName, { size: "large" }));
   card.querySelector(".status-title").textContent = status.title;
   card.querySelector(".status-description").textContent = status.description;
-  card.querySelector(".status-streak").textContent = `🔥 Серия: ${formatDayCount(status.streak)}`;
-  card.querySelector(".status-record").textContent = `🏆 Рекорд: ${formatDayCount(status.bestStreak)}`;
-  card.querySelector(".status-activity").textContent = `${status.activity.icon} Активность: ${status.activity.label}`;
+  setPremiumIconText(card.querySelector(".status-streak"), "flame", `Серия: ${formatDayCount(status.streak)}`);
+  setPremiumIconText(card.querySelector(".status-record"), "trophy", `Рекорд: ${formatDayCount(status.bestStreak)}`);
+  setPremiumIconText(card.querySelector(".status-activity"), status.activity.iconName, `Активность: ${status.activity.label}`);
 }
 
 function createStatusMiniBadge(participant) {
   const status = getParticipantStatusInfo(participant);
   const badge = document.createElement("span");
+  const title = document.createElement("span");
+  const streak = document.createElement("span");
   badge.className = "status-mini";
   badge.dataset.status = status.key;
-  badge.innerHTML = `
-    <span class="status-mini-title">${status.icon} ${status.title}</span>
-    <span class="status-mini-streak">🔥 ${formatDayCount(status.streak)}</span>
-  `;
+  title.className = "status-mini-title";
+  streak.className = "status-mini-streak";
+  setPremiumIconText(title, status.iconName, status.title);
+  setPremiumIconText(streak, "flame", formatDayCount(status.streak));
+  badge.append(title, streak);
   return badge;
 }
 
@@ -4593,10 +4944,10 @@ function formatDayCount(days) {
   return `${safeDays} дней`;
 }
 
-function showStatusToast(message) {
+function showStatusToast(message, iconName = "sparkle") {
   const toast = document.createElement("div");
   toast.className = "status-toast";
-  toast.textContent = message;
+  setPremiumIconText(toast, iconName, message);
   document.body.append(toast);
   requestAnimationFrame(() => {
     toast.classList.add("is-visible");
@@ -4634,9 +4985,11 @@ function renderGoalArchive(container, participant) {
     card.classList.toggle("archive-card-completed", isCompleted);
     card.classList.toggle("archive-card-expired", !isCompleted);
     main.className = "archive-main";
-    title.textContent = isCompleted
-      ? `🏆 ${goal.title || "Цель без названия"}`
-      : goal.title || "Цель без названия";
+    if (isCompleted) {
+      setPremiumIconText(title, "trophy", goal.title || "Цель без названия");
+    } else {
+      title.textContent = goal.title || "Цель без названия";
+    }
     status.className = `archive-status archive-${isCompleted ? "completed" : "expired"}`;
     status.textContent = isCompleted ? "Цель достигнута" : "Не достигнута";
 
@@ -4644,14 +4997,14 @@ function renderGoalArchive(container, participant) {
       const trophy = document.createElement("span");
       const metrics = document.createElement("div");
       trophy.className = "archive-trophy";
-      trophy.textContent = "🏆";
+      trophy.append(createPremiumIcon("trophy", { size: "medium" }));
       trophy.setAttribute("aria-label", "Цель достигнута");
       metrics.className = "archive-achievement-grid";
       metrics.append(
-        createArchiveMetric("📅", "Дата завершения", formatCompletedDate(goal.completedAt || goal.archivedAt)),
-        createArchiveMetric("🔥", "Серия", formatDayCount(goal.streakAtCompletion || 0)),
-        createArchiveMetric("⚡", "Выполнено шагов", String(goal.completedSteps || goal.doneTasks || 0)),
-        createArchiveMetric("🏅", "Статус", `${goal.statusIcon || ""} ${goal.statusTitle || "НОВИЧОК"}`.trim()),
+        createArchiveMetric("calendar", "Дата завершения", formatCompletedDate(goal.completedAt || goal.archivedAt)),
+        createArchiveMetric("flame", "Серия", formatDayCount(goal.streakAtCompletion || 0)),
+        createArchiveMetric("bolt", "Выполнено шагов", String(goal.completedSteps || goal.doneTasks || 0)),
+        createArchiveMetric(getStatusIconNameByTitle(goal.statusTitle), "Статус", stripPremiumEmoji(goal.statusTitle || "НОВИЧОК")),
       );
       main.append(title, metrics);
       card.append(trophy);
@@ -4696,12 +5049,12 @@ function renderGoalArchive(container, participant) {
   }
 }
 
-function createArchiveMetric(icon, label, value) {
+function createArchiveMetric(iconName, label, value) {
   const metric = document.createElement("span");
   metric.className = "archive-achievement-metric";
   const labelEl = document.createElement("small");
   const valueEl = document.createElement("strong");
-  labelEl.textContent = `${icon} ${label}`;
+  setPremiumIconText(labelEl, iconName, label);
   valueEl.textContent = value;
   metric.append(labelEl, valueEl);
   return metric;

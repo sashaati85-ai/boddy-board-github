@@ -307,7 +307,7 @@
     <div id="goalCompletionModal" class="modal-layer goal-completion-modal" hidden>
       <section class="goal-completion-card" role="dialog" aria-modal="true" aria-labelledby="goalCompletionHeading">
         <span class="goal-completion-glow" aria-hidden="true"></span>
-        <p class="goal-completion-kicker" id="goalCompletionHeading">👑 ЦЕЛЬ ДОСТИГНУТА</p>
+        <p class="goal-completion-kicker" id="goalCompletionHeading">ЦЕЛЬ ДОСТИГНУТА</p>
         <h2 id="goalCompletionTitle"></h2>
         <div class="goal-completion-grid">
           <span id="goalCompletionStreak"></span>
@@ -368,28 +368,31 @@
           <button class="delete-account" type="button" data-edit-key="deleteAccountButton">Удалить участника</button>
         </header>
 
-        <section class="status-card" aria-label="Статус пользователя">
-          <div class="status-card-top">
-            <span class="status-card-kicker" data-edit-key="statusCardTitle">МОЙ СТАТУС</span>
-            <span class="status-pill"></span>
-          </div>
-          <div class="status-card-main">
-            <div class="status-emblem" aria-hidden="true"></div>
-            <div>
-              <strong class="status-title"></strong>
-              <p class="status-description"></p>
+        <section class="goal-journey-shell" aria-label="Путь к цели">
+          <div class="goal-journey"></div>
+          <section class="status-card status-card-compact" aria-label="Статус пользователя">
+            <div class="status-card-top">
+              <span class="status-card-kicker" data-edit-key="statusCardTitle">МОЙ СТАТУС</span>
+              <span class="status-pill"></span>
             </div>
-          </div>
-          <div class="status-metrics">
-            <span class="status-metric status-streak"></span>
-            <span class="status-metric status-record"></span>
-            <span class="status-metric status-activity"></span>
-          </div>
+            <div class="status-card-main">
+              <div class="status-emblem" aria-hidden="true"></div>
+              <div>
+                <strong class="status-title"></strong>
+                <p class="status-description"></p>
+              </div>
+            </div>
+            <div class="status-metrics">
+              <span class="status-metric status-streak"></span>
+              <span class="status-metric status-record"></span>
+              <span class="status-metric status-activity"></span>
+            </div>
+          </section>
         </section>
 
         <div class="goal-card">
           <div class="goal-card-header">
-            <span class="goal-card-badge" data-edit-key="goalCardBadge">🏆 Основная цель</span>
+            <span class="goal-card-badge" data-edit-key="goalCardBadge">Основная цель</span>
           </div>
           <div class="goal-fields">
             <label class="goal-label">
@@ -429,7 +432,7 @@
         </section>
 
         <section class="next-goal-panel" hidden>
-          <strong data-edit-key="nextGoalTitle">🔥 Ты завершил этот путь.</strong>
+          <strong data-edit-key="nextGoalTitle">Ты завершил этот путь.</strong>
           <p data-edit-key="nextGoalText">Создай новую цель и продолжай движение.</p>
           <button class="new-goal-button primary-action" type="button" data-edit-key="newGoalButton">Создать новую цель</button>
         </section>
