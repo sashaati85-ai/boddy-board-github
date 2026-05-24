@@ -20,7 +20,11 @@
   --orange-dark: #8f642c;
   --progress-gradient: linear-gradient(90deg, #8f642c 0%, #c99a45 42%, #f1d27a 72%, #b7863f 100%);
   --danger: #b45746;
-  --done: #6f8b5f;
+  --done: #6b4a2d;
+  --success-premium-bg: #f7efe2;
+  --success-premium-border: #e8d8b8;
+  --success-premium-text: #6b4a2d;
+  --success-premium-icon: #c9a45c;
   --shadow: 0 16px 40px rgba(92, 63, 31, 0.11);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -708,8 +712,17 @@ tbody tr.is-viewed {
 }
 
 .deadline-success {
-  color: #247a55;
-  background: #e8f7ef;
+  border: 1px solid var(--success-premium-border);
+  color: var(--success-premium-text);
+  background:
+    linear-gradient(135deg, rgba(255, 248, 236, 0.96), var(--success-premium-bg));
+  box-shadow:
+    0 8px 18px rgba(107, 74, 45, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.deadline-success .premium-icon {
+  color: var(--success-premium-icon);
 }
 
 .deadline-warning {
@@ -2062,13 +2075,13 @@ textarea:focus {
   display: grid;
   gap: 10px;
   margin: 16px 20px;
-  border: 1px solid rgba(63, 159, 111, 0.24);
+  border: 1px solid var(--success-premium-border);
   border-radius: 18px;
   padding: 18px;
   background:
-    radial-gradient(circle at top right, rgba(63, 159, 111, 0.14), transparent 34%),
-    linear-gradient(135deg, #f4fbf7, #ffffff);
-  box-shadow: 0 14px 30px rgba(21, 32, 43, 0.06);
+    radial-gradient(circle at top right, rgba(201, 164, 92, 0.16), transparent 34%),
+    linear-gradient(135deg, var(--ivory), #ffffff);
+  box-shadow: 0 14px 30px rgba(107, 74, 45, 0.06);
 }
 
 .next-goal-panel[hidden] {
@@ -2076,7 +2089,7 @@ textarea:focus {
 }
 
 .next-goal-panel strong {
-  color: #247a55;
+  color: var(--success-premium-text);
   font-size: 20px;
 }
 
@@ -2161,7 +2174,7 @@ textarea:focus {
 
 .task-card.drag-over {
   border-color: rgba(183, 134, 63, 0.65);
-  background: #eff7ff;
+  background: var(--ivory);
 }
 
 .task-card.is-dragging,
@@ -2293,12 +2306,20 @@ body.is-dragging-card * {
 .task-complete-badge {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   padding: 4px 10px;
+  border: 1px solid var(--success-premium-border);
   border-radius: 999px;
-  background: rgba(63, 159, 111, 0.14);
-  color: var(--done);
+  background:
+    linear-gradient(135deg, rgba(255, 248, 236, 0.96), var(--success-premium-bg));
+  color: var(--success-premium-text);
   font-size: 12px;
   font-weight: 800;
+  box-shadow: 0 8px 18px rgba(107, 74, 45, 0.06);
+}
+
+.task-complete-badge .premium-icon {
+  color: var(--success-premium-icon);
 }
 
 .subtask-count {
@@ -2354,25 +2375,33 @@ body.is-dragging-card * {
 
 .subtask-card.drag-over {
   border-color: rgba(183, 134, 63, 0.65);
-  background: #eff7ff;
+  background: var(--ivory);
 }
 
 .subtask-card.is-done {
-  background: #f5fbf7;
+  border-color: var(--success-premium-border);
+  background:
+    linear-gradient(135deg, rgba(255, 248, 236, 0.96), rgba(247, 239, 226, 0.84));
 }
 
 .subtask-card.is-done .card-title {
-  color: var(--muted);
-  text-decoration: line-through;
+  color: rgba(107, 74, 45, 0.72);
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(201, 164, 92, 0.62);
 }
 
 .task-card.is-done {
-  background: #f5fbf7;
+  border-color: var(--success-premium-border);
+  background:
+    linear-gradient(135deg, rgba(255, 248, 236, 0.96), rgba(247, 239, 226, 0.84));
 }
 
 .task-card.is-done .card-title {
-  color: var(--muted);
-  text-decoration: line-through;
+  color: rgba(107, 74, 45, 0.72);
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(201, 164, 92, 0.62);
 }
 
 .card-title {
@@ -2418,8 +2447,10 @@ body.is-dragging-card * {
 }
 
 .complete-checkbox:checked + .checkmark {
-  border-color: var(--done);
-  background: var(--done);
+  border-color: var(--success-premium-icon);
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 253, 248, 0.78), transparent 34%),
+    linear-gradient(135deg, var(--gold-soft), var(--success-premium-icon));
 }
 
 .complete-checkbox:disabled + .checkmark {
@@ -3004,8 +3035,9 @@ body.is-dragging-card * {
 }
 
 .read-person.has-read {
-  color: #247a55;
-  background: #e8f7ef;
+  border-color: var(--success-premium-border);
+  color: var(--success-premium-text);
+  background: var(--success-premium-bg);
 }
 
 .announcement-card {

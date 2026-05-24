@@ -4386,7 +4386,7 @@ function renderTableRow(participant, progress) {
   row.querySelector(".table-goal").textContent = participant.goal || "Цель ещё не указана";
   const deadlinePill = row.querySelector(".deadline-pill");
   const deadlineInfo = getDeadlineInfo(participant.deadline);
-  deadlinePill.textContent = deadlineInfo.label;
+  setPremiumIconText(deadlinePill, "calendar", deadlineInfo.label, { size: "small" });
   deadlinePill.classList.add(`deadline-${deadlineInfo.tone}`);
   row.querySelector(".table-count").textContent = `${progress.done} из ${progress.total}`;
   row.querySelector(".table-progress-bar").style.width = `${progress.percent}%`;
@@ -5316,6 +5316,9 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   checkbox.disabled = !editable || subtasks.length > 0 || completed;
   editButton.hidden = !editable || completed;
   completeBadge.hidden = !completed;
+  if (completed) {
+    setPremiumIconText(completeBadge, "badge", completeBadge.textContent || "Молодец!", { size: "small" });
+  }
   addSubtaskButton.hidden = !canManageSubtasks;
   subtaskToggle.hidden = subtasks.length === 0 || completed;
   subtaskToggle.textContent = getSubtaskToggleText(
