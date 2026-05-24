@@ -468,6 +468,7 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
 }
 
 .chart-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(92px, 0.5fr) minmax(120px, 1fr) auto;
   align-items: center;
@@ -565,6 +566,26 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
   color: var(--danger);
   font-size: 12px;
   font-weight: 900;
+}
+
+.completed-goal-countdown {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 1px solid rgba(201, 164, 92, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.92);
+  color: var(--gold-deep);
+  box-shadow: 0 8px 18px rgba(107, 74, 45, 0.1);
+}
+
+.completed-goal-countdown .premium-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .chart-row[data-place="2"] .champion-badge,
