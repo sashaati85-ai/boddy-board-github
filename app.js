@@ -2957,7 +2957,7 @@ function toggleTask(participantId, taskId, done) {
   if (!participant || !isActive(participantId)) return;
 
   const task = participant.tasks.find((item) => item.id === taskId);
-  if (!task || (Array.isArray(task.subtasks) && task.subtasks.length > 0) || isTaskComplete(task)) return;
+  if (!task || (Array.isArray(task.subtasks) && task.subtasks.length > 0)) return;
   if (done && !canCompleteTaskSequentially(participant, taskId)) {
     showSequentialProgressWarning();
     return;
@@ -3052,6 +3052,10 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
   const promotedStatus = done ? recordParticipantActivity(participant, now) : null;
   subtask.updatedAt = now;
   task.updatedAt = now;
+  if (!done) {
+    task.done = false;
+    task.subtasksHidden = false;
+  }
   participant.taskListUpdatedAt = now;
   reorderSubtasks(task);
   if (task.subtasks.length > 0 && task.subtasks.every((item) => item.done)) {
@@ -4690,7 +4694,7 @@ function GoalJourney(props) {
 
   footer.append(
     createJourneyStat("medal", "Выполнено", `${completedPoints} из ${totalPoints}`),
-    createJourneyStat("path", "До цели", `${remainingPoints} ${getJourneyPointPlural(remainingPoints)}`),
+    createJourneyStat("path", "До цели", `${remainingPoints} ${getStepWord(remainingPoints)}`),
     createJourneyStat("flame", "Прогресс", `${journeyPercent}%`),
   );
 
@@ -4855,14 +4859,14 @@ function createJourneyStat(iconName, label, value) {
   return item;
 }
 
-function getJourneyPointPlural(count) {
+function getStepWord(count) {
   const value = Math.abs(Number(count || 0));
   const lastTwo = value % 100;
   const last = value % 10;
-  if (lastTwo >= 11 && lastTwo <= 14) return "точек";
-  if (last === 1) return "точка";
-  if (last >= 2 && last <= 4) return "точки";
-  return "точек";
+  if (lastTwo >= 11 && lastTwo <= 14) return "шагов";
+  if (last === 1) return "шаг";
+  if (last >= 2 && last <= 4) return "шага";
+  return "шагов";
 }
 
 function renderProfile() {
@@ -5293,7 +5297,7 @@ function createSubtaskCard(participantId, taskId, subtask, editable) {
   card.classList.toggle("is-done", Boolean(subtask.done));
   card.querySelector(".card-title").textContent = subtask.title;
   checkbox.checked = Boolean(subtask.done);
-  checkbox.disabled = !editable || subtask.done;
+  checkbox.disabled = !editable;
   editButton.hidden = !editable || subtask.done;
 
   checkbox.addEventListener("change", () => toggleSubtask(participantId, taskId, subtask.id, checkbox.checked));
@@ -5383,6 +5387,7 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
   const remaining = subtasks.filter((subtask) => !subtask.done).length;
   const canManageSubtasks = editable && !completed;
+  const canToggleSubtasks = subtasks.length > 0 && (editable || !completed);
   const canReadonlyToggleSubtasks = !editable && subtasks.length > 0 && !completed;
   const readonlySubtasksKey = `${participantId}:${task.id}`;
   const readonlySubtasksAreOpen = readonlySubtasksOpen.has(readonlySubtasksKey);
@@ -5404,21 +5409,21 @@ function createTaskCard(participantId, task, editable, index, totalTasks) {
   card.classList.toggle("is-done", completed);
   card.querySelector(".card-title").textContent = task.title;
   checkbox.checked = completed;
-  checkbox.disabled = !editable || subtasks.length > 0 || completed;
+  checkbox.disabled = !editable || subtasks.length > 0;
   editButton.hidden = !editable || completed;
   completeBadge.hidden = !completed;
   if (completed) {
     setPremiumIconText(completeBadge, "badge", completeBadge.textContent || "Молодец!", { size: "small" });
   }
   addSubtaskButton.hidden = !canManageSubtasks;
-  subtaskToggle.hidden = subtasks.length === 0 || completed;
+  subtaskToggle.hidden = !canToggleSubtasks;
   subtaskToggle.textContent = getSubtaskToggleText(
     canReadonlyToggleSubtasks ? readonlySubtasksAreOpen : !task.subtasksHidden,
     remaining,
   );
   subtaskPanel.hidden =
     subtasks.length === 0 ||
-    completed ||
+    !canToggleSubtasks ||
     (canReadonlyToggleSubtasks ? !readonlySubtasksAreOpen : task.subtasksHidden);
   subtaskForm.hidden = !canManageSubtasks;
 
