@@ -4624,9 +4624,9 @@ function renderGoalJourney(container, props) {
 
 function getGoalJourneyPoints(mainSteps = []) {
   const points = [];
-  const orderedTasks = orderTasksByCompletion(mainSteps);
+  const orderedTasks = sortByOrder(mainSteps);
   orderedTasks.forEach((task, taskIndex) => {
-    const subtasks = Array.isArray(task.subtasks) ? orderSubtasksByCompletion(task.subtasks) : [];
+    const subtasks = Array.isArray(task.subtasks) ? sortByOrder(task.subtasks) : [];
     points.push({
       id: task.id || `task-${taskIndex}`,
       type: "main",
