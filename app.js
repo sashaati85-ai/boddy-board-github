@@ -4502,7 +4502,6 @@ function GoalJourney(props) {
     participantAvatar,
     currentGoal,
     mainSteps,
-    progressPercent,
   } = props;
   const card = document.createElement("section");
   const header = document.createElement("div");
@@ -4510,18 +4509,24 @@ function GoalJourney(props) {
   const title = document.createElement("h3");
   const goal = document.createElement("p");
   const map = document.createElement("div");
-  const svg = createJourneyLineSvg(progressPercent);
   const points = getGoalJourneyPoints(mainSteps);
   const totalPoints = points.length;
   const completedPoints = points.filter((point) => point.done).length;
   const remainingPoints = Math.max(0, totalPoints - completedPoints);
-  const activeIndex = points.findIndex((point) => !point.done);
-  const participantPoint = totalPoints === 0
+  const journeyPercent = totalPoints === 0 ? 0 : Math.round((completedPoints / totalPoints) * 100);
+  const currentIndex = getLastCompletedJourneyIndex(points);
+  const markerRatio = currentIndex === -1 ? null : getJourneyRatio(currentIndex, totalPoints);
+  const lineRatio = currentIndex === -1
+    ? 0
+    : completedPoints >= totalPoints
+      ? 1
+      : getJourneyRatio(currentIndex, totalPoints);
+  const svg = createJourneyLineSvg(lineRatio * 100);
+  const participantPoint = markerRatio === null
     ? null
-    : activeIndex === -1
-      ? getJourneyPosition(1)
-      : getJourneyPosition(getJourneyRatio(activeIndex, totalPoints));
+    : getJourneyPosition(markerRatio);
   const trophy = document.createElement("div");
+  const trophyPosition = getJourneyPosition(1);
   const footer = document.createElement("div");
 
   card.className = "goal-journey-card";
@@ -4530,6 +4535,7 @@ function GoalJourney(props) {
   title.textContent = "Путь к цели";
   goal.textContent = currentGoal?.trim() || "Цель пока не указана";
   map.className = "goal-journey-map";
+  map.style.setProperty("--journey-depth", `${Math.min(1, journeyPercent / 100).toFixed(2)}`);
   footer.className = "goal-journey-stats";
 
   heading.append(title, goal);
@@ -4543,24 +4549,26 @@ function GoalJourney(props) {
     map.append(empty);
   } else {
     points.forEach((point, index) => {
-      map.append(createJourneyPoint(point, getJourneyRatio(index, totalPoints)));
+      map.append(createJourneyPoint(point, getJourneyRatio(index, totalPoints), index === currentIndex));
     });
     if (participantPoint) {
-      map.append(createJourneyMarker(participantName, participantAvatar, participantPoint));
+      map.append(createJourneyMarker(participantName, participantAvatar, participantPoint, {
+        isFinished: remainingPoints === 0,
+      }));
     }
   }
 
   trophy.className = "goal-journey-trophy";
   trophy.classList.toggle("is-complete", totalPoints > 0 && remainingPoints === 0);
-  trophy.style.left = "91%";
-  trophy.style.top = "12%";
+  trophy.style.left = `${trophyPosition.x}%`;
+  trophy.style.top = `${trophyPosition.y}%`;
   trophy.append(createPremiumIcon("trophy", { size: "medium" }));
   map.append(trophy);
 
   footer.append(
     createJourneyStat("medal", "Выполнено", `${completedPoints} из ${totalPoints}`),
     createJourneyStat("path", "До цели", `${remainingPoints} ${getJourneyPointPlural(remainingPoints)}`),
-    createJourneyStat("flame", "Прогресс", `${progressPercent || 0}%`),
+    createJourneyStat("flame", "Прогресс", `${journeyPercent}%`),
   );
 
   card.append(header, map, footer);
@@ -4579,7 +4587,7 @@ function getGoalJourneyPoints(mainSteps = []) {
       id: task.id || `task-${taskIndex}`,
       type: "main",
       title: task.title || "Шаг",
-      done: Boolean(task.done),
+      done: isTaskComplete(task),
     });
     (task.subtasks || []).forEach((subtask, subtaskIndex) => {
       points.push({
@@ -4594,22 +4602,31 @@ function getGoalJourneyPoints(mainSteps = []) {
 }
 
 function getJourneyRatio(index, total) {
-  if (total <= 1) return 0.5;
-  return index / (total - 1);
+  const finalPointRatio = 0.84;
+  if (total <= 1) return 0.42;
+  return (index / (total - 1)) * finalPointRatio;
+}
+
+function getLastCompletedJourneyIndex(points = []) {
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    if (points[index]?.done) return index;
+  }
+  return -1;
 }
 
 function getJourneyPosition(ratio) {
   const clamped = Math.max(0, Math.min(1, Number(ratio || 0)));
-  const x = 8 + clamped * 78;
-  const y = 80 - clamped * 54 + Math.sin(clamped * Math.PI * 1.15) * 6;
+  const x = 7 + clamped * 80;
+  const y = 84 - clamped * 62 + Math.sin(clamped * Math.PI * 1.05) * 7;
   return { x, y };
 }
 
-function createJourneyPoint(point, ratio) {
+function createJourneyPoint(point, ratio, isCurrent = false) {
   const position = getJourneyPosition(ratio);
   const node = document.createElement("span");
   node.className = `goal-journey-point goal-journey-point-${point.type}`;
   node.classList.toggle("is-complete", point.done);
+  node.classList.toggle("is-current", isCurrent);
   node.style.left = `${position.x}%`;
   node.style.top = `${position.y}%`;
   node.title = stripPremiumEmoji(point.title);
@@ -4617,13 +4634,14 @@ function createJourneyPoint(point, ratio) {
   return node;
 }
 
-function createJourneyMarker(name, avatarUrl, position) {
+function createJourneyMarker(name, avatarUrl, position, options = {}) {
   const marker = document.createElement("div");
   const avatar = document.createElement("span");
-  const label = document.createElement("strong");
   marker.className = "goal-journey-marker";
+  marker.classList.toggle("is-finished", Boolean(options.isFinished));
   marker.style.left = `${position.x}%`;
   marker.style.top = `${position.y}%`;
+  marker.setAttribute("aria-label", `Текущая позиция: ${name}`);
   avatar.className = "goal-journey-avatar";
   if (avatarUrl) {
     const image = document.createElement("img");
@@ -4633,20 +4651,48 @@ function createJourneyMarker(name, avatarUrl, position) {
   } else {
     avatar.textContent = getParticipantInitial(name);
   }
-  label.textContent = name;
-  marker.append(avatar, label);
+  marker.append(avatar);
   return marker;
 }
 
 function createJourneyLineSvg(progressPercent) {
   const svg = document.createElementNS(SVG_NS, "svg");
+  const defs = document.createElementNS(SVG_NS, "defs");
+  const baseGradient = document.createElementNS(SVG_NS, "linearGradient");
+  const progressGradient = document.createElementNS(SVG_NS, "linearGradient");
   const basePath = document.createElementNS(SVG_NS, "path");
   const progressPath = document.createElementNS(SVG_NS, "path");
-  const d = "M8 80 C24 74 31 66 43 62 C57 57 62 42 73 35 C80 30 85 27 91 18";
+  const d = "M7 84 C20 80 30 73 39 66 C51 57 57 56 66 43 C75 30 81 29 87 22";
+  const gradientId = `goalJourneyGold-${Math.random().toString(36).slice(2)}`;
+  const baseGradientId = `goalJourneyBase-${Math.random().toString(36).slice(2)}`;
 
   svg.classList.add("goal-journey-line");
   svg.setAttribute("viewBox", "0 0 100 100");
   svg.setAttribute("preserveAspectRatio", "none");
+  baseGradient.id = baseGradientId;
+  progressGradient.id = gradientId;
+  [baseGradient, progressGradient].forEach((gradient) => {
+    gradient.setAttribute("x1", "7");
+    gradient.setAttribute("y1", "84");
+    gradient.setAttribute("x2", "87");
+    gradient.setAttribute("y2", "22");
+    gradient.setAttribute("gradientUnits", "userSpaceOnUse");
+  });
+  [
+    [baseGradient, "0%", "#efe2ca", "0.36"],
+    [baseGradient, "55%", "#e8d8b8", "0.58"],
+    [baseGradient, "100%", "#c9a45c", "0.34"],
+    [progressGradient, "0%", "#e8d8b8", "0.68"],
+    [progressGradient, "42%", "#c9a45c", "1"],
+    [progressGradient, "100%", "#b88a32", "1"],
+  ].forEach(([gradient, offset, color, opacity]) => {
+    const stop = document.createElementNS(SVG_NS, "stop");
+    stop.setAttribute("offset", offset);
+    stop.setAttribute("stop-color", color);
+    stop.setAttribute("stop-opacity", opacity);
+    gradient.append(stop);
+  });
+  defs.append(baseGradient, progressGradient);
 
   [basePath, progressPath].forEach((path) => {
     path.setAttribute("d", d);
@@ -4655,9 +4701,11 @@ function createJourneyLineSvg(progressPercent) {
   });
   basePath.classList.add("goal-journey-line-base");
   progressPath.classList.add("goal-journey-line-progress");
+  basePath.setAttribute("stroke", `url(#${baseGradientId})`);
+  progressPath.setAttribute("stroke", `url(#${gradientId})`);
   progressPath.style.strokeDasharray = "100";
   progressPath.style.strokeDashoffset = String(100 - Math.max(0, Math.min(100, Number(progressPercent || 0))));
-  svg.append(basePath, progressPath);
+  svg.append(defs, basePath, progressPath);
   return svg;
 }
 
