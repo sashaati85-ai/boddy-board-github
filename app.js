@@ -4708,11 +4708,11 @@ function renderGoalJourney(container, props) {
 }
 
 function getGoalJourneyPoints(mainSteps = []) {
-  const points = [];
+  const orderedPoints = [];
   const orderedTasks = sortByOrder(mainSteps);
   orderedTasks.forEach((task, taskIndex) => {
     const subtasks = Array.isArray(task.subtasks) ? sortByOrder(task.subtasks) : [];
-    points.push({
+    orderedPoints.push({
       id: task.id || `task-${taskIndex}`,
       type: "main",
       title: task.title || "Шаг",
@@ -4720,7 +4720,7 @@ function getGoalJourneyPoints(mainSteps = []) {
       done: isTaskComplete(task),
     });
     subtasks.forEach((subtask, subtaskIndex) => {
-      points.push({
+      orderedPoints.push({
         id: subtask.id || `${task.id || taskIndex}-subtask-${subtaskIndex}`,
         type: "sub",
         title: subtask.title || "Доп. шаг",
@@ -4728,7 +4728,20 @@ function getGoalJourneyPoints(mainSteps = []) {
       });
     });
   });
-  return points;
+  return orderJourneyPointsByProgress(orderedPoints);
+}
+
+function orderJourneyPointsByProgress(points = []) {
+  const completed = [];
+  const pending = [];
+  points.forEach((point) => {
+    if (point.done) {
+      completed.push(point);
+    } else {
+      pending.push(point);
+    }
+  });
+  return [...completed, ...pending];
 }
 
 function getJourneyRatio(index, total) {
