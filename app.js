@@ -149,6 +149,7 @@ let pendingSharedSaveCount = 0;
 let lastLocalWriteAt = 0;
 let scheduledSaveTimer = 0;
 let pendingDeadlineConfirmation = null;
+let currentView = "community";
 const readonlySubtasksOpen = new Set();
 const expandedArchiveParticipants = new Set();
 let pendingGoalCompletion = null;
@@ -257,6 +258,7 @@ const resultChart = document.querySelector("#resultChart");
 const resultTable = document.querySelector("#resultTable");
 const participantPath = document.querySelector("#participantPath");
 const deleteColumnHeader = document.querySelector("#deleteColumnHeader");
+const personalEntry = document.querySelector("#personalEntry");
 const profileView = document.querySelector("#profileView");
 const chartTemplate = document.querySelector("#chartTemplate");
 const tableRowTemplate = document.querySelector("#tableRowTemplate");
@@ -1180,6 +1182,7 @@ function openTour(participantId) {
   const participant = findParticipant(participantId);
   if (participant) {
     state.viewedParticipantId = participant.id;
+    currentView = "profile";
     render();
   }
   currentTourParticipantId = participantId;
@@ -2037,6 +2040,7 @@ async function joinAsParticipant(source = {}) {
 
 function logoutParticipant() {
   state.activeParticipantId = "";
+  currentView = "community";
   localStorage.removeItem(SESSION_KEY);
   closeModals();
   render();
@@ -2799,8 +2803,26 @@ function isAdminRoute() {
 
 function viewParticipant(id) {
   state.viewedParticipantId = id;
+  currentView = "profile";
   saveState();
   render();
+}
+
+function showCommunityView() {
+  currentView = "community";
+  render();
+}
+
+function openActiveParticipantProfile() {
+  const active = findParticipant(state.activeParticipantId);
+  if (active) {
+    state.viewedParticipantId = active.id;
+    currentView = "profile";
+    saveState();
+    render();
+    return;
+  }
+  openModal(loginModal, registrationKeyInput || nameInput);
 }
 
 function archiveFinishedGoals() {
@@ -3804,11 +3826,14 @@ function render() {
     saveState();
   }
   renderWelcomeGate();
+  document.body.classList.toggle("is-profile-view", currentView === "profile");
+  document.body.classList.toggle("is-community-view", currentView !== "profile");
   renderSiteImages();
   renderAdminControls();
   renderActiveBadge();
   renderResults();
   renderParticipantPath();
+  renderPersonalEntry();
   renderProfile();
   renderGoalCompletionModal();
   renderAnnouncementModal();
@@ -4248,6 +4273,62 @@ function renderResults() {
     const progress = getActionProgress(participant.tasks);
     renderTableRow(participant, progress);
   });
+}
+
+function renderPersonalEntry() {
+  if (!personalEntry) return;
+  personalEntry.replaceChildren();
+  personalEntry.hidden = false;
+
+  const active = findParticipant(state.activeParticipantId);
+  const card = document.createElement("button");
+  const avatar = document.createElement("span");
+  const content = document.createElement("span");
+  const eyebrow = document.createElement("span");
+  const title = document.createElement("strong");
+  const meta = document.createElement("span");
+  const action = document.createElement("span");
+
+  card.type = "button";
+  card.className = "personal-entry-card";
+  avatar.className = "personal-entry-avatar";
+  content.className = "personal-entry-content";
+  eyebrow.className = "personal-entry-eyebrow";
+  meta.className = "personal-entry-meta";
+  action.className = "personal-entry-action";
+
+  if (active) {
+    const status = getParticipantStatusInfo(active);
+    const progress = getActionProgress(active.tasks || []);
+    if (active.picture) {
+      const image = document.createElement("img");
+      image.src = active.picture;
+      image.alt = `Фото ${active.name}`;
+      avatar.append(image);
+    } else {
+      avatar.textContent = getParticipantInitial(active.name);
+    }
+    eyebrow.textContent = "Личный кабинет";
+    title.textContent = active.name;
+    meta.append(
+      createIconText(status.iconName, status.title, "personal-entry-pill"),
+      createIconText("flame", formatDaysLeft(status.streak), "personal-entry-pill"),
+      createIconText("path", `${progress.percent}% цели`, "personal-entry-pill"),
+    );
+    action.textContent = "Открыть мой путь";
+    card.addEventListener("click", openActiveParticipantProfile);
+  } else {
+    avatar.append(createPremiumIcon("path", { size: "medium" }));
+    eyebrow.textContent = "Личный кабинет";
+    title.textContent = "Войдите как участник";
+    meta.append(createIconText("calendar", "Ваши цели, шаги и архив будут здесь", "personal-entry-pill"));
+    action.textContent = "Войти как участник";
+    card.addEventListener("click", () => openModal(loginModal, registrationKeyInput || nameInput));
+  }
+
+  content.append(eyebrow, title, meta);
+  card.append(avatar, content, action);
+  personalEntry.append(card);
 }
 
 function getResultsTableParticipants() {
@@ -4786,12 +4867,22 @@ function getJourneyPointPlural(count) {
 
 function renderProfile() {
   profileView.replaceChildren();
+  if (currentView !== "profile") {
+    return;
+  }
 
   const participant = findParticipant(state.viewedParticipantId) || state.participants[0];
+  const backButton = document.createElement("button");
+  backButton.className = "profile-back-button";
+  backButton.type = "button";
+  backButton.textContent = "← Назад к общей странице";
+  backButton.addEventListener("click", showCommunityView);
+
   if (!participant) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
     empty.textContent = "Пока нет участников. Создайте первый аккаунт.";
+    profileView.append(backButton);
     profileView.append(empty);
     return;
   }
@@ -4952,7 +5043,7 @@ function renderProfile() {
     startNextGoal(participant.id);
   });
 
-  profileView.append(node);
+  profileView.append(backButton, node);
   maybeShowTempoWarning(participant, editable);
 }
 
