@@ -2936,6 +2936,10 @@ function toggleTask(participantId, taskId, done) {
 
   const task = participant.tasks.find((item) => item.id === taskId);
   if (!task || (Array.isArray(task.subtasks) && task.subtasks.length > 0) || isTaskComplete(task)) return;
+  if (done && !canCompleteTaskSequentially(participant, taskId)) {
+    showSequentialProgressWarning();
+    return;
+  }
 
   task.done = done;
   const now = Date.now();
@@ -3015,6 +3019,10 @@ function toggleSubtask(participantId, taskId, subtaskId, done) {
 
   const subtask = task.subtasks.find((item) => item.id === subtaskId);
   if (!subtask) return;
+  if (done && !canCompleteSubtaskSequentially(participant, taskId, subtaskId)) {
+    showSequentialProgressWarning();
+    return;
+  }
 
   const now = Date.now();
   subtask.done = done;
@@ -3475,6 +3483,40 @@ function getActionProgress(tasks = []) {
   const done = getCompletedActionCount(tasks);
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   return { total, done, percent };
+}
+
+function canCompleteTaskSequentially(participant, taskId) {
+  const tasks = Array.isArray(participant?.tasks) ? participant.tasks : [];
+  for (const task of tasks) {
+    if (task.id === taskId) return true;
+    if (!isTaskComplete(task)) return false;
+  }
+  return false;
+}
+
+function canCompleteSubtaskSequentially(participant, taskId, subtaskId) {
+  const tasks = Array.isArray(participant?.tasks) ? participant.tasks : [];
+  for (const task of tasks) {
+    if (task.id !== taskId) {
+      if (!isTaskComplete(task)) return false;
+      continue;
+    }
+    const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+    for (const subtask of subtasks) {
+      if (subtask.id === subtaskId) return true;
+      if (!subtask.done) return false;
+    }
+    return false;
+  }
+  return false;
+}
+
+function showSequentialProgressWarning() {
+  showStatusToast(
+    "Вы идёте не последовательно. Сначала завершите предыдущий шаг или перенесите этот шаг выше в списке",
+    "warning",
+  );
+  render();
 }
 
 function isDeadlineExpired(deadline) {
@@ -4583,13 +4625,15 @@ function renderGoalJourney(container, props) {
 function getGoalJourneyPoints(mainSteps = []) {
   const points = [];
   mainSteps.forEach((task, taskIndex) => {
+    const subtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
     points.push({
       id: task.id || `task-${taskIndex}`,
       type: "main",
       title: task.title || "Шаг",
+      isContainer: subtasks.length > 0,
       done: isTaskComplete(task),
     });
-    (task.subtasks || []).forEach((subtask, subtaskIndex) => {
+    subtasks.forEach((subtask, subtaskIndex) => {
       points.push({
         id: subtask.id || `${task.id || taskIndex}-subtask-${subtaskIndex}`,
         type: "sub",
@@ -4608,10 +4652,19 @@ function getJourneyRatio(index, total) {
 }
 
 function getLastCompletedJourneyIndex(points = []) {
-  for (let index = points.length - 1; index >= 0; index -= 1) {
-    if (points[index]?.done) return index;
+  let lastSequentialCompletedIndex = -1;
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    if (point?.done) {
+      lastSequentialCompletedIndex = index;
+      continue;
+    }
+    if (point?.isContainer) {
+      continue;
+    }
+    break;
   }
-  return -1;
+  return lastSequentialCompletedIndex;
 }
 
 function getJourneyPosition(ratio) {
