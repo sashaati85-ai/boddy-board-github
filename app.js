@@ -10,17 +10,17 @@ const siteContent = {
     {
       title: "Он стал холоднее и отдалился?",
       text: "Если стало меньше внимания, тепла и общения, а вы всё чаще думаете: 'Что я сделала не так?'",
-      image: "linear-gradient(145deg, rgba(255, 250, 241, 0.94), rgba(219, 185, 124, 0.24)), url('assets/alexander-anna-hero.png')",
+      image: "linear-gradient(145deg, rgba(255, 250, 241, 0.94), rgba(219, 185, 124, 0.24)), url('assets/alexander-anna-experts.png')",
     },
     {
       title: "Вы устали тянуть отношения одна?",
       text: "Если вы стараетесь, объясняете, спасаете, а внутри всё больше усталости, обиды и одиночества.",
-      image: "linear-gradient(145deg, rgba(255, 250, 241, 0.92), rgba(185, 136, 76, 0.2)), url('assets/alexander-anna-hero.png')",
+      image: "linear-gradient(145deg, rgba(255, 250, 241, 0.92), rgba(185, 136, 76, 0.2)), url('assets/alexander-anna-experts.png')",
     },
     {
       title: "Почему вас тянет к тем, кто не выбирает вас до конца?",
       text: "Если мужчина то приближается, то отдаляется, а вы всё сильнее привязываетесь и ждёте ясности.",
-      image: "linear-gradient(145deg, rgba(255, 250, 241, 0.93), rgba(203, 166, 101, 0.24)), url('assets/alexander-anna-hero.png')",
+      image: "linear-gradient(145deg, rgba(255, 250, 241, 0.93), rgba(203, 166, 101, 0.24)), url('assets/alexander-anna-experts.png')",
     },
   ],
   benefits: [
@@ -109,7 +109,9 @@ function Header() {
   return `
     <header class="site-header">
       <a class="brand" href="#top" aria-label="Александр и Анна">
-        <span class="brand-mark">A&A</span>
+        <span class="brand-mark">
+          <img src="assets/alexander-anna-logo.png" alt="">
+        </span>
         <span>
           <strong>Александр и Анна</strong>
           <small>психология + цифровой анализ</small>
@@ -141,7 +143,7 @@ function Hero() {
       </div>
       <div class="hero-visual" aria-label="Александр и Анна">
         <div class="portrait-ring"></div>
-        <img src="assets/alexander-anna-hero.png" alt="Александр и Анна">
+        <img src="assets/alexander-anna-experts.png" alt="Александр и Анна">
         <div class="portrait-caption">
           <strong>Александр и Анна</strong>
           <span>бережный взгляд на отношения с двух сторон</span>
@@ -369,6 +371,13 @@ function App() {
 }
 
 document.querySelector("#app").innerHTML = App();
+
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+
+window.scrollTo(0, 0);
+window.addEventListener("load", () => window.scrollTo(0, 0));
 
 const funnel = document.querySelector("[data-funnel]");
 const funnelSubtitle = document.querySelector("[data-funnel-subtitle]");
