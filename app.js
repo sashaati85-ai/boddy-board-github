@@ -370,14 +370,22 @@ function App() {
   `;
 }
 
-document.querySelector("#app").innerHTML = App();
-
 if ("scrollRestoration" in history) {
   history.scrollRestoration = "manual";
 }
 
-window.scrollTo(0, 0);
-window.addEventListener("load", () => window.scrollTo(0, 0));
+if (window.location.hash) {
+  history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+}
+
+document.querySelector("#app").innerHTML = App();
+
+function resetInitialView() {
+  window.scrollTo(0, 0);
+}
+
+resetInitialView();
+window.addEventListener("load", resetInitialView);
 
 const funnel = document.querySelector("[data-funnel]");
 const funnelSubtitle = document.querySelector("[data-funnel-subtitle]");
@@ -406,9 +414,20 @@ document.querySelectorAll("[data-start-test]").forEach((button) => {
   button.addEventListener("click", () => openFunnel(Number(button.dataset.startTest)));
 });
 
-document.querySelector("[data-show-result]").addEventListener("click", () => showStage("result"));
-document.querySelector("[data-open-cabinet]").addEventListener("click", () => showStage("cabinet"));
-document.querySelector("[data-close-funnel]").addEventListener("click", closeFunnel);
-funnel.addEventListener("click", (event) => {
+document.querySelector("[data-show-result]")?.addEventListener("click", () => showStage("result"));
+document.querySelector("[data-open-cabinet]")?.addEventListener("click", () => showStage("cabinet"));
+document.querySelector("[data-close-funnel]")?.addEventListener("click", closeFunnel);
+funnel?.addEventListener("click", (event) => {
   if (event.target === funnel) closeFunnel();
+});
+
+document.querySelectorAll('a[href^="#"]').forEach((link) => {
+  link.addEventListener("click", (event) => {
+    const target = document.querySelector(link.getAttribute("href"));
+
+    if (!target) return;
+
+    event.preventDefault();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 });
