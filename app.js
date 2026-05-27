@@ -12,7 +12,6 @@ const DEFAULT_COVER_URL = "assets/boddy-premium-cover.png";
 const DEFAULT_WELCOME_COVER_URL = "assets/boddy-welcome-cover.png";
 const STATUS_LOGO_URL = "assets/boddy-status-logo.png";
 const COMPLETED_GOAL_NOTICE_TTL = 7 * 24 * 60 * 60 * 1000;
-const COMPLETED_GOAL_DASHBOARD_WARNING_DELAY = 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STATUS_TIERS = [
   {
@@ -117,10 +116,6 @@ const PREMIUM_ICON_PATHS = {
     { tag: "path", d: "M17 3v4" },
     { tag: "path", d: "M4 8h16" },
     { tag: "rect", x: "4", y: "5", width: "16", height: "15", rx: "3" },
-  ],
-  clock: [
-    { tag: "circle", cx: "12", cy: "12", r: "8" },
-    { tag: "path", d: "M12 7v5l3 2" },
   ],
   warning: [
     { tag: "path", d: "M12 4 3.5 19h17L12 4Z" },
@@ -3991,21 +3986,6 @@ function getActiveCompletedGoalNotice(participant) {
   return notice;
 }
 
-function getCompletedGoalCountdownInfo(participant) {
-  const notice = getDashboardCompletedGoalNotice(participant);
-  if (!notice?.completedAt || Date.now() - Number(notice.completedAt) < COMPLETED_GOAL_DASHBOARD_WARNING_DELAY) {
-    return null;
-  }
-
-  const expiresAt = Number(notice.expiresAt || 0);
-  const remainingMs = Math.max(0, expiresAt - Date.now());
-  const daysLeft = Math.max(1, Math.ceil(remainingMs / DAY_MS));
-  return {
-    daysLeft,
-    label: `Если не создать новую цель, карточка исчезнет через ${formatDayCount(daysLeft)}.`,
-  };
-}
-
 function render() {
   if (archiveFinishedGoals()) {
     saveState();
@@ -4576,7 +4556,6 @@ function renderChartRow(participant, progress, place) {
   const avatar = node.querySelector(".chart-avatar");
   const placeIcon = node.querySelector(".place-icon");
   const completedNotice = getDashboardCompletedGoalNotice(participant);
-  const countdownInfo = getCompletedGoalCountdownInfo(participant);
   const isChampion = place === 1 || Boolean(completedNotice);
   const placeBadge = completedNotice
     ? {
@@ -4628,16 +4607,13 @@ function renderChartRow(participant, progress, place) {
       });
       node.querySelector(".chart-person").append(clearButton);
     }
-    if (state.isAdmin && countdownInfo) {
-      const countdownBadge = document.createElement("span");
-      countdownBadge.className = "completed-goal-countdown";
-      countdownBadge.title = countdownInfo.label;
-      countdownBadge.setAttribute("aria-label", countdownInfo.label);
-      countdownBadge.append(createPremiumIcon("clock", { size: "small" }));
-      node.append(countdownBadge);
-    }
   }
-  node.querySelector(".chart-percent").textContent = `${progress.percent}%`;
+  const chartPercent = node.querySelector(".chart-percent");
+  chartPercent.textContent = `${progress.percent}%`;
+  chartPercent.classList.toggle("is-completed-goal-countdown", Boolean(completedNotice));
+  if (completedNotice) {
+    chartPercent.title = "Отсчёт 7 дней уже идёт. Если участник не начнёт новую цель, запись исчезнет.";
+  }
   node.querySelector(".chart-bar").style.width = `${progress.percent}%`;
   node.addEventListener("click", () => viewParticipant(participant.id));
 
