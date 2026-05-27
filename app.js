@@ -885,11 +885,21 @@ function restoreLocalSession() {
     localStorage.removeItem(SESSION_KEY);
   }
 
-  if (!session?.participantId) return;
+  const hasAdminSession = session?.isAdmin === true;
+  state.isAdmin = hasAdminSession;
+
+  if (!session?.participantId) {
+    currentView = "community";
+    return;
+  }
 
   const participant = state.participants.find((person) => person.id === session.participantId);
   if (!participant) {
-    localStorage.removeItem(SESSION_KEY);
+    if (hasAdminSession) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ isAdmin: true, view: "community" }));
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
     return;
   }
 
@@ -899,15 +909,21 @@ function restoreLocalSession() {
 }
 
 function persistLocalSession() {
-  if (!state.activeParticipantId) {
+  if (!state.activeParticipantId && !state.isAdmin) {
     localStorage.removeItem(SESSION_KEY);
     return;
   }
 
-  localStorage.setItem(SESSION_KEY, JSON.stringify({
-    participantId: state.activeParticipantId,
+  const session = {
     view: currentView === "profile" ? "profile" : "community",
-  }));
+  };
+  if (state.activeParticipantId) {
+    session.participantId = state.activeParticipantId;
+  }
+  if (state.isAdmin) {
+    session.isAdmin = true;
+  }
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
 function loadGoogleIdentity() {
@@ -2200,7 +2216,7 @@ async function joinAsParticipant(source = {}) {
 function logoutParticipant() {
   state.activeParticipantId = "";
   currentView = "community";
-  localStorage.removeItem(SESSION_KEY);
+  persistLocalSession();
   closeModals();
   render();
 }
