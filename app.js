@@ -496,7 +496,14 @@ async function refreshSharedState() {
     const freshState = await fetchSharedState();
     const previousSharedState = JSON.stringify(toSharedState(state));
     const nextSharedState = JSON.stringify(toSharedState(freshState));
-    if (previousSharedState === nextSharedState) return;
+    if (previousSharedState === nextSharedState) {
+      if (clearExpiredCompletedGoalNotices()) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSharedState(state)));
+        saveSharedState(state);
+        render();
+      }
+      return;
+    }
 
     const activeParticipantId = state.activeParticipantId;
     const viewedParticipantId = state.viewedParticipantId;
