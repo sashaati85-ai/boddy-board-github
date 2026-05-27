@@ -662,7 +662,9 @@ th {
 }
 
 tbody tr.is-viewed {
-  background: #f2f6fb;
+  background:
+    linear-gradient(90deg, rgba(247, 239, 226, 0.72), rgba(255, 253, 248, 0.38));
+  box-shadow: inset 3px 0 0 rgba(201, 164, 92, 0.5);
 }
 
 .table-name {
@@ -731,7 +733,8 @@ tbody tr.is-viewed {
 
 .deadline-empty {
   color: var(--muted);
-  background: #eef2f6;
+  border: 1px solid rgba(201, 164, 92, 0.14);
+  background: rgba(247, 239, 226, 0.52);
 }
 
 .deadline-success {
