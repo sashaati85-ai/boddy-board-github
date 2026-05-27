@@ -4597,6 +4597,13 @@ function renderChartRow(participant, progress, place) {
     completedText.textContent = `${formatCompletedDate(completedNotice.completedAt)} выполнил свою цель`;
     node.querySelector(".chart-person").append(completedText);
     if (state.isAdmin) {
+      const ageBadge = document.createElement("span");
+      const displayDays = getCompletedGoalDisplayDays(completedNotice);
+      ageBadge.className = "completed-goal-age";
+      ageBadge.textContent = displayDays === 0 ? "Висит: сегодня" : `Висит: ${formatDayCount(displayDays)}`;
+      ageBadge.title = "Карточка чемпиона держится 7 дней после завершения цели.";
+      node.querySelector(".chart-person").append(ageBadge);
+
       const clearButton = document.createElement("span");
       clearButton.className = "completed-goal-clear";
       clearButton.textContent = "Удалить";
@@ -5483,6 +5490,13 @@ function formatCompletedDate(timestamp) {
   if (Number.isNaN(date.getTime())) return "Сегодня";
 
   return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
+}
+
+function getCompletedGoalDisplayDays(notice) {
+  const completedAt = Number(notice?.completedAt || 0);
+  if (!completedAt) return 0;
+
+  return Math.max(0, Math.floor((Date.now() - completedAt) / DAY_MS));
 }
 
 function createSubtaskCard(participantId, taskId, subtask, editable) {

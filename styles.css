@@ -556,6 +556,22 @@ body.is-text-edit-mode [data-placeholder-key]:hover {
   overflow-wrap: anywhere;
 }
 
+.completed-goal-age {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid rgba(201, 164, 92, 0.22);
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.88), rgba(247, 239, 226, 0.66));
+  color: rgba(107, 74, 45, 0.76);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(107, 74, 45, 0.06);
+}
+
 .completed-goal-clear {
   display: inline-flex;
   min-height: 26px;
