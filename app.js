@@ -380,28 +380,12 @@ if (window.location.hash) {
 
 document.querySelector("#app").innerHTML = App();
 
-function clearStartupHash() {
-  if (window.location.hash) {
-    history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-  }
-}
-
 function resetInitialView() {
-  clearStartupHash();
   window.scrollTo(0, 0);
-  document.documentElement.scrollTop = 0;
-  document.body.scrollTop = 0;
 }
 
 resetInitialView();
-requestAnimationFrame(resetInitialView);
-requestAnimationFrame(() => requestAnimationFrame(resetInitialView));
-document.addEventListener("DOMContentLoaded", resetInitialView);
 window.addEventListener("load", resetInitialView);
-window.addEventListener("pageshow", resetInitialView);
-setTimeout(resetInitialView, 50);
-setTimeout(resetInitialView, 250);
-setTimeout(resetInitialView, 800);
 
 const funnel = document.querySelector("[data-funnel]");
 const funnelSubtitle = document.querySelector("[data-funnel-subtitle]");
