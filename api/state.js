@@ -1,9 +1,32 @@
+const fs = require("fs/promises");
+const path = require("path");
+
+const STORE_FILE = process.env.BODDY_STATE_STORE_FILE
+  ? path.resolve(process.env.BODDY_STATE_STORE_FILE)
+  : "";
 const STORE_URL = process.env.BODDY_STATE_STORE_URL ||
   "https://jsonblob.com/api/jsonBlob/019e5b0c-44a0-7548-bff9-05e894ab9748";
 const LEGACY_DEFAULT_LOGO_URL = "assets/boddy-logo.jpg";
 const DEFAULT_LOGO_URL = "assets/boddy-rocket-logo.png";
 const LEGACY_DEFAULT_COVER_URL = "assets/boddy-cover.png";
 const DEFAULT_COVER_URL = "assets/boddy-premium-cover.png";
+const EMPTY_SHARED_STATE = {
+  participants: [],
+  adminPasswordHashV2: "",
+  adminPasswordChanged: false,
+  registrationPasswordHash: "",
+  siteImages: normalizeSiteImages(),
+  siteImagesUpdatedAt: 0,
+  uiText: {},
+  uiPlaceholders: {},
+  inactivityThresholdDays: 7,
+  inactivityThresholdUpdatedAt: 0,
+  announcements: [],
+  announcement: null,
+  announcementDeletedAt: 0,
+  deletedAnnouncementIds: [],
+  deletedParticipantIds: [],
+};
 
 function normalizeSharedState(value) {
   const source = value && typeof value === "object" ? value : {};
@@ -56,28 +79,19 @@ module.exports = async function handler(request, response) {
   }
 
   if (request.method === "GET") {
-    const storeResponse = await fetch(STORE_URL, {
-      headers: { Accept: "application/json" },
-    });
-
-    if (!storeResponse.ok) {
+    try {
+      response.status(200).json(normalizeSharedState(await readStoreState()));
+    } catch {
       response.status(502).json({ error: "Не удалось загрузить общую доску." });
-      return;
     }
 
-    response.status(200).json(normalizeSharedState(await storeResponse.json()));
     return;
   }
 
   if (request.method === "PUT" || request.method === "POST") {
     const body = typeof request.body === "string" ? JSON.parse(request.body) : request.body;
     const data = normalizeSharedState(body);
-    const currentResponse = await fetch(STORE_URL, {
-      headers: { Accept: "application/json" },
-    });
-    const currentData = currentResponse.ok
-      ? normalizeSharedState(await currentResponse.json())
-      : { participants: [], adminPasswordHashV2: "", adminPasswordChanged: false, registrationPasswordHash: "", siteImages: normalizeSiteImages(), siteImagesUpdatedAt: 0, uiText: {}, uiPlaceholders: {}, inactivityThresholdDays: 7, inactivityThresholdUpdatedAt: 0, announcements: [], announcement: null, announcementDeletedAt: 0, deletedAnnouncementIds: [], deletedParticipantIds: [] };
+    const currentData = normalizeSharedState(await readStoreState().catch(() => EMPTY_SHARED_STATE));
     const deletedIds = new Set([
       ...currentData.deletedParticipantIds,
       ...data.deletedParticipantIds,
@@ -116,27 +130,54 @@ module.exports = async function handler(request, response) {
       data.participants = mergeParticipants(currentData.participants, [], deletedIds);
     }
 
-    const storeResponse = await fetch(STORE_URL, {
-      method: "PUT",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!storeResponse.ok) {
+    try {
+      response.status(200).json(normalizeSharedState(await writeStoreState(data)));
+    } catch {
       response.status(502).json({ error: "Не удалось сохранить общую доску." });
-      return;
     }
 
-    response.status(200).json(normalizeSharedState(await storeResponse.json()));
     return;
   }
 
   response.setHeader("Allow", "GET, PUT, POST, OPTIONS");
   response.status(405).json({ error: "Метод не поддерживается." });
 };
+
+async function readStoreState() {
+  if (STORE_FILE) {
+    try {
+      return JSON.parse(await fs.readFile(STORE_FILE, "utf8"));
+    } catch (error) {
+      if (error.code === "ENOENT") return EMPTY_SHARED_STATE;
+      throw error;
+    }
+  }
+
+  const storeResponse = await fetch(STORE_URL, {
+    headers: { Accept: "application/json" },
+  });
+  if (!storeResponse.ok) throw new Error("Store is not available");
+  return storeResponse.json();
+}
+
+async function writeStoreState(data) {
+  if (STORE_FILE) {
+    await fs.mkdir(path.dirname(STORE_FILE), { recursive: true });
+    await fs.writeFile(STORE_FILE, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+    return data;
+  }
+
+  const storeResponse = await fetch(STORE_URL, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!storeResponse.ok) throw new Error("Store did not save");
+  return storeResponse.json();
+}
 
 function normalizeSiteImages(siteImages = {}) {
   const logo = typeof siteImages.logo === "string" ? siteImages.logo.trim() : "";

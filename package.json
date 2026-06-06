@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "vercel dev",
+    "start": "node server.js",
+    "dev": "vercel dev",
     "check": "node --check app.js && node --check api/state.js"
   }
 }
